@@ -51,8 +51,6 @@ const GiftPackage = require('./models/GiftPackage');
 // Auth Middleware
 const auth = require('./middleware/auth');
 
-app.use("/api", apiRoutes);
-
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
