@@ -11,12 +11,15 @@ const app = express();
 // CORS configuration for production
 app.use(cors({
     origin: [
-        'http://localhost:3000',
+        'http://localhost:5000',
         'http://127.0.0.1:3000',
-        'https://FulloMyself.github.io'
+        'https://fullomyself.github.io'
     ],
-    credentials: true
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
+
 app.use(express.json());
 app.use(express.static('public'));
 
