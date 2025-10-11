@@ -13,7 +13,7 @@ app.use(cors({
     origin: [
         'http://localhost:5000',
         'http://127.0.0.1:3000',
-        'http://127.0.0.1:5000',
+        'http://127.0.0.1:5500',
         'https://fullomyself.github.io'
     ],
     credentials: true,
