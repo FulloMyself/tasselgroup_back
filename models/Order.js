@@ -45,6 +45,10 @@ const orderSchema = new mongoose.Schema({
     enum: ['card', 'cash', 'bank_transfer'],
     default: 'card'
   },
+  processedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
   voucher: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Voucher'

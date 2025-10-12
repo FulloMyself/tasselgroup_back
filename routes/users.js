@@ -14,6 +14,20 @@ router.get('/', adminAuth, async (req, res) => {
   }
 });
 
+router.get('/staff', auth, async (req, res) => {
+  try {
+    const staffMembers = await User.find({ 
+      role: { $in: ['staff', 'admin'] } 
+    }).select('name email role phone');
+    
+    res.json(staffMembers);
+  } catch (error) {
+    console.error('Error fetching staff members:', error);
+    res.status(500).json({ message: 'Error fetching staff members' });
+  }
+});
+
+
 // Get user profile
 router.get('/profile', auth, async (req, res) => {
   try {

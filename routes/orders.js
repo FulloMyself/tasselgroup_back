@@ -14,12 +14,15 @@ router.get('/', staffAuth, async (req, res) => {
       orders = await Order.find()
         .populate('user', 'name email phone')
         .populate('items.product', 'name price image')
-        .populate('voucher', 'code discount type');
+        .populate('voucher', 'code discount type')
+        .populate('processedBy', 'name email role'); // Add processedBy population
     } else {
-      orders = await Order.find()
+      // For staff, show orders they processed
+      orders = await Order.find({ processedBy: req.user._id })
         .populate('user', 'name email phone')
         .populate('items.product', 'name price image')
-        .populate('voucher', 'code discount type');
+        .populate('voucher', 'code discount type')
+        .populate('processedBy', 'name email role'); // Add processedBy population
     }
     res.json(orders);
   } catch (error) {
@@ -32,17 +35,24 @@ router.get('/my-orders', auth, async (req, res) => {
   try {
     const orders = await Order.find({ user: req.user._id })
       .populate('items.product', 'name price image')
-      .populate('voucher', 'code discount type');
+      .populate('voucher', 'code discount type')
+      .populate('processedBy', 'name email role'); // Add processedBy population
     res.json(orders);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-// Create order
+// Create order with staff assignment
 router.post('/', auth, async (req, res) => {
   try {
-    const { items, voucherCode, shippingAddress, paymentMethod } = req.body;
+    const { items, voucherCode, shippingAddress, paymentMethod, processedBy } = req.body;
+
+    console.log('🛒 Order creation request:', {
+      user: req.user._id,
+      itemsCount: items?.length,
+      processedBy
+    });
 
     // Calculate total
     let total = 0;
@@ -86,15 +96,20 @@ router.post('/', auth, async (req, res) => {
       finalTotal,
       shippingAddress: shippingAddress || req.user.address,
       paymentMethod,
-      voucher: voucher?._id
+      voucher: voucher?._id,
+      processedBy: processedBy || null // Add staff assignment
     });
 
     await order.save();
     await order.populate('items.product', 'name price image');
     await order.populate('voucher', 'code discount type');
+    await order.populate('processedBy', 'name email role');
+
+    console.log('✅ Order created successfully:', order._id);
 
     res.status(201).json(order);
   } catch (error) {
+    console.error('❌ Order creation error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -110,7 +125,8 @@ router.put('/:id/status', staffAuth, async (req, res) => {
     )
       .populate('user', 'name email phone')
       .populate('items.product', 'name price image')
-      .populate('voucher', 'code discount type');
+      .populate('voucher', 'code discount type')
+      .populate('processedBy', 'name email role');
 
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });

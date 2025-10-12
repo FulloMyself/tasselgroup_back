@@ -5,7 +5,7 @@ const { auth, staffAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Create booking - DEBUG VERSION
+// Create booking
 router.post('/', auth, async (req, res) => {
   try {
     console.log('📝 Booking creation request received:', {
@@ -41,7 +41,7 @@ router.post('/', auth, async (req, res) => {
     const booking = new Booking({
       user: req.user._id,
       service,
-      staff: staff || null, // staff is optional
+      staff: staff || null, // staff is optional in your model
       date: new Date(date),
       time,
       duration: serviceDoc.duration,
@@ -52,9 +52,9 @@ router.post('/', auth, async (req, res) => {
     console.log('💾 Saving booking to database...');
     await booking.save();
 
-    // Populate the booking for response
+    // Populate the booking for response - USE CORRECT FIELD NAMES
     await booking.populate('service', 'name price duration');
-    await booking.populate('staff', 'name email');
+    await booking.populate('staff', 'name email'); // Use 'staff' not 'assignedStaff'
 
     console.log('✅ Booking created successfully:', booking._id);
 
@@ -64,8 +64,7 @@ router.post('/', auth, async (req, res) => {
     console.error('❌ Booking creation error:', error);
     res.status(500).json({ 
       message: 'Server error creating booking',
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: error.message
     });
   }
 });
@@ -75,7 +74,7 @@ router.get('/my-bookings', auth, async (req, res) => {
   try {
     const bookings = await Booking.find({ user: req.user._id })
       .populate('service', 'name price duration category')
-      .populate('staff', 'name email');
+      .populate('staff', 'name email'); // Use 'staff' not 'assignedStaff'
     res.json(bookings);
   } catch (error) {
     console.error('Error fetching user bookings:', error);
@@ -91,16 +90,32 @@ router.get('/', staffAuth, async (req, res) => {
       bookings = await Booking.find()
         .populate('user', 'name email phone')
         .populate('service', 'name price duration')
-        .populate('staff', 'name email');
+        .populate('staff', 'name email'); // Use 'staff' not 'assignedStaff'
     } else {
+      // For staff, show bookings assigned to them
       bookings = await Booking.find({ staff: req.user._id })
         .populate('user', 'name email phone')
         .populate('service', 'name price duration')
-        .populate('staff', 'name email');
+        .populate('staff', 'name email'); // Use 'staff' not 'assignedStaff'
     }
     res.json(bookings);
   } catch (error) {
     console.error('Error fetching bookings:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get bookings by staff member
+router.get('/staff/:staffId', staffAuth, async (req, res) => {
+  try {
+    const bookings = await Booking.find({ staff: req.params.staffId })
+      .populate('user', 'name email phone')
+      .populate('service', 'name price duration')
+      .populate('staff', 'name email');
+    
+    res.json(bookings);
+  } catch (error) {
+    console.error('Error fetching staff bookings:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
