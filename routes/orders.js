@@ -138,4 +138,38 @@ router.put('/:id/status', staffAuth, async (req, res) => {
   }
 });
 
+// In routes/orders.js - Add public stats
+router.get('/public-stats', async (req, res) => {
+    try {
+        const totalOrders = await Order.countDocuments();
+        const totalRevenue = await Order.aggregate([
+            { $group: { _id: null, total: { $sum: '$finalTotal' } } }
+        ]);
+        
+        res.json({
+            totalOrders,
+            totalRevenue: totalRevenue[0]?.total || 0
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// In routes/bookings.js - Add public stats
+router.get('/public-stats', async (req, res) => {
+    try {
+        const totalBookings = await Booking.countDocuments();
+        const totalRevenue = await Booking.aggregate([
+            { $group: { _id: null, total: { $sum: '$price' } } }
+        ]);
+        
+        res.json({
+            totalBookings,
+            totalRevenue: totalRevenue[0]?.total || 0
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 module.exports = router;
