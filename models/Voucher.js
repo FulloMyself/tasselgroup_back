@@ -18,10 +18,11 @@ const voucherSchema = new mongoose.Schema({
     enum: ['percentage', 'fixed'],
     required: true
   },
+  // Make assignedTo optional
   assignedTo: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false // Change from true to false
   },
   used: {
     type: Number,
@@ -56,28 +57,28 @@ voucherSchema.index({ validUntil: 1 });
 voucherSchema.index({ isActive: 1 });
 
 // Virtual for remaining uses
-voucherSchema.virtual('remainingUses').get(function() {
+voucherSchema.virtual('remainingUses').get(function () {
   return this.maxUses - this.used;
 });
 
 // Virtual for isExpired
-voucherSchema.virtual('isExpired').get(function() {
+voucherSchema.virtual('isExpired').get(function () {
   return new Date() > this.validUntil;
 });
 
 // Virtual for canBeUsed
-voucherSchema.virtual('canBeUsed').get(function() {
+voucherSchema.virtual('canBeUsed').get(function () {
   return this.isActive && !this.isExpired && this.used < this.maxUses;
 });
 
 // Instance method to apply discount
-voucherSchema.methods.applyDiscount = function(originalAmount) {
+voucherSchema.methods.applyDiscount = function (originalAmount) {
   if (!this.canBeUsed) {
     throw new Error('Voucher cannot be used');
   }
 
   let discountAmount = 0;
-  
+
   if (this.type === 'percentage') {
     discountAmount = originalAmount * (this.discount / 100);
   } else {
@@ -91,21 +92,21 @@ voucherSchema.methods.applyDiscount = function(originalAmount) {
 };
 
 // Instance method to mark as used
-voucherSchema.methods.markAsUsed = function() {
+voucherSchema.methods.markAsUsed = function () {
   if (this.used >= this.maxUses) {
     throw new Error('Voucher has reached maximum usage limit');
   }
-  
+
   if (this.isExpired) {
     throw new Error('Voucher has expired');
   }
-  
+
   if (!this.isActive) {
     throw new Error('Voucher is not active');
   }
 
   this.used += 1;
-  
+
   // Deactivate if reached max uses
   if (this.used >= this.maxUses) {
     this.isActive = false;
@@ -115,7 +116,7 @@ voucherSchema.methods.markAsUsed = function() {
 };
 
 // Static method to find valid voucher
-voucherSchema.statics.findValidVoucher = function(code, staffId) {
+voucherSchema.statics.findValidVoucher = function (code, staffId) {
   return this.findOne({
     code: code.toUpperCase(),
     assignedTo: staffId,
@@ -126,7 +127,7 @@ voucherSchema.statics.findValidVoucher = function(code, staffId) {
 };
 
 // Static method to get voucher usage statistics
-voucherSchema.statics.getVoucherStats = async function() {
+voucherSchema.statics.getVoucherStats = async function () {
   const result = await this.aggregate([
     {
       $group: {
@@ -158,11 +159,11 @@ voucherSchema.statics.getVoucherStats = async function() {
 };
 
 // Middleware to validate voucher data
-voucherSchema.pre('save', function(next) {
+voucherSchema.pre('save', function (next) {
   if (this.type === 'percentage' && this.discount > 100) {
     next(new Error('Percentage discount cannot exceed 100%'));
   }
-  
+
   if (this.validUntil <= new Date()) {
     next(new Error('Voucher expiration date must be in the future'));
   }
