@@ -8,19 +8,22 @@ require('dotenv').config();
 const app = express();
 
 // Middleware
-// CORS configuration for production
+
+// CORS configuration
 app.use(cors({
     origin: [
-        'http://localhost:5000',
-        'http://127.0.0.1:3000',
+        'http://localhost:3000',
+        'http://127.0.0.1:3000', 
+        'http://localhost:5500',
         'http://127.0.0.1:5500',
         'https://fullomyself.github.io'
     ],
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
 }));
 
+// Make sure this comes BEFORE your routes
 app.use(express.json());
 app.use(express.static('public'));
 

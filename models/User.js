@@ -44,9 +44,18 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Hash password before saving
+// IMPROVED pre-save hook: Only hash if password is modified AND not already hashed
 userSchema.pre('save', async function(next) {
+  // Only hash if password is modified
   if (!this.isModified('password')) return next();
+  
+  // Check if password is already hashed (bcrypt hashes start with $2a$)
+  if (this.password.startsWith('$2a$')) {
+    console.log('⚠️  Password appears to already be hashed, skipping re-hash');
+    return next();
+  }
+  
+  // Only hash plain text passwords
   this.password = await bcrypt.hash(this.password, 10);
   next();
 });

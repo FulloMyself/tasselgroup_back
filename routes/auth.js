@@ -1,4 +1,5 @@
 const express = require('express');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { auth } = require('../middleware/auth');
@@ -10,42 +11,57 @@ router.post('/register', async (req, res) => {
   try {
     const { name, email, password, phone, address } = req.body;
 
-    // Check if user exists
-    let user = await User.findOne({ email });
-    if (user) {
-      return res.status(400).json({ message: 'User already exists' });
+    if (!name || !email || !password) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Name, email and password are required' 
+      });
     }
 
-    // Create user (always as customer)
-    user = new User({
-      name,
-      email,
-      password,
-      phone,
-      address,
+    const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+    if (existingUser) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'User already exists with this email' 
+      });
+    }
+
+    const user = new User({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      password: await bcrypt.hash(password, 12),
+      phone: phone?.trim() || '',
+      address: address?.trim() || '',
       role: 'customer'
     });
 
     await user.save();
 
-    // Generate token
     const token = jwt.sign(
-      { userId: user._id },
-      process.env.JWT_SECRET || 'tassel_secret',
+      { userId: user._id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
     res.status(201).json({
+      success: true,
       token,
       user: {
-        id: user._id,
+        _id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        phone: user.phone,
+        address: user.address
       }
     });
+
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('❌ Registration error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error during registration'
+    });
   }
 });
 
@@ -54,29 +70,42 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Check if user exists
-    const user = await User.findOne({ email });
+    if (!email || !password) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email and password are required' 
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
+    
     if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid email or password' 
+      });
     }
 
-    // Check password
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid email or password' 
+      });
     }
 
-    // Generate token
     const token = jwt.sign(
-      { userId: user._id },
-      process.env.JWT_SECRET || 'tassel_secret',
+      { userId: user._id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
     res.json({
+      success: true,
       token,
       user: {
-        id: user._id,
+        _id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
@@ -84,8 +113,13 @@ router.post('/login', async (req, res) => {
         address: user.address
       }
     });
+
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('❌ Login error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error during login'
+    });
   }
 });
 
@@ -93,8 +127,9 @@ router.post('/login', async (req, res) => {
 router.get('/me', auth, async (req, res) => {
   try {
     res.json({
+      success: true,
       user: {
-        id: req.user._id,
+        _id: req.user._id,
         name: req.user.name,
         email: req.user.email,
         role: req.user.role,
@@ -103,7 +138,27 @@ router.get('/me', auth, async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('❌ Get me error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error retrieving user data'
+    });
+  }
+});
+
+// Logout
+router.post('/logout', auth, async (req, res) => {
+  try {
+    res.json({ 
+      success: true,
+      message: 'Logged out successfully' 
+    });
+  } catch (error) {
+    console.error('❌ Logout error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error during logout'
+    });
   }
 });
 
