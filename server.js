@@ -7,27 +7,28 @@ require('dotenv').config();
 
 const app = express();
 
-// Middleware
-
-// CORS configuration
-app.use(cors({
+// SINGLE CORS Configuration - Clean and Simple
+const corsOptions = {
     origin: [
         'http://localhost:3000',
         'http://127.0.0.1:3000', 
         'http://localhost:5500',
         'http://127.0.0.1:5500',
-        'https://fullomyself.github.io'
+        'https://fullomyself.github.io',
+        'https://fullomyself.github.io/tasselgroupwebapplication'
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
-}));
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"]
+};
+
+app.use(cors(corsOptions));
 
 // Make sure this comes BEFORE your routes
 app.use(express.json());
 app.use(express.static('public'));
 
-// MongoDB Connection
+// MongoDB Connection - KEEP EXACTLY AS IS SINCE IT WORKS
 const connectDB = async () => {
     try {
         await mongoose.connect(process.env.MONGODB_URI, {
@@ -86,10 +87,9 @@ app.get('/', (req, res) => {
     });
 });
 
-
-
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
+    console.log(`🔗 CORS configured for:`, corsOptions.origin);
 });
