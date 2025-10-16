@@ -24,6 +24,9 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+// ADD THIS LINE: Handle preflight requests globally
+app.options('*', cors(corsOptions));
+
 // Make sure this comes BEFORE your routes
 app.use(express.json());
 app.use(express.static('public'));
