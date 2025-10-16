@@ -87,6 +87,32 @@ app.get('/', (req, res) => {
     });
 });
 
+// TEMPORARY PRODUCTION SEED ENDPOINT - REMOVE AFTER USE
+app.post('/api/seed-production', async (req, res) => {
+    try {
+        console.log('🌱 STARTING PRODUCTION SEEDING...');
+        
+        // Import seed function
+        const { seedDatabase } = require('./seedDatabase');
+        
+        // Run the seed
+        await seedDatabase();
+        
+        console.log('✅ PRODUCTION DATABASE SEEDED SUCCESSFULLY');
+        res.json({ 
+            success: true, 
+            message: 'Production database seeded successfully',
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ PRODUCTION SEEDING FAILED:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
+        });
+    }
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT}`);
