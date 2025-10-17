@@ -86,34 +86,8 @@ app.get('/', (req, res) => {
     res.json({ 
         message: 'Tassel Group API',
         version: '1.0.0',
-        environment: process.env.NODE_ENV  // FIXED: changed 'en' to 'env'
+        environment: process.env.NODE_ENV
     });
-});
-
-// TEMPORARY PRODUCTION SEED ENDPOINT - ADD THIS BACK
-app.post('/api/seed-production', async (req, res) => {
-    try {
-        console.log('🌱 STARTING PRODUCTION SEEDING...');
-        
-        // Import seed function
-        const { seedDatabase } = require('./seedDatabase');
-        
-        // Run the seed
-        await seedDatabase();
-        
-        console.log('✅ PRODUCTION DATABASE SEEDED SUCCESSFULLY');
-        res.json({ 
-            success: true, 
-            message: 'Production database seeded successfully',
-            timestamp: new Date().toISOString()
-        });
-    } catch (error) {
-        console.error('❌ PRODUCTION SEEDING FAILED:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: error.message 
-        });
-    }
 });
 
 const PORT = process.env.PORT || 5000;
