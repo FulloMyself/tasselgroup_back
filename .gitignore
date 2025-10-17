@@ -1,6 +1,5 @@
 .env
 node_modules/
-seedDatabase.js
 .env.production
 checkUsers.js
 verify-login.js
