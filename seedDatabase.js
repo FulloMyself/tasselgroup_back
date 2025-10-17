@@ -154,7 +154,7 @@ const createServices = async () => {
             description: 'Professional haircut with styling and consultation',
             price: 350,
             duration: '45 min',
-            category: 'hair',
+            category: 'haircare', // FIXED: Changed from 'hair' to 'haircare'
             image: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80'
         },
         {
@@ -162,7 +162,7 @@ const createServices = async () => {
             description: 'Full hair coloring service with premium products',
             price: 1200,
             duration: '120 min',
-            category: 'color',
+            category: 'haircare', // FIXED: Changed from 'color' to 'haircare'
             image: 'https://images.unsplash.com/photo-1560869713-7d9aea7ebcd6?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80'
         },
         {
@@ -170,40 +170,40 @@ const createServices = async () => {
             description: 'Intensive hair treatment for damaged hair',
             price: 450,
             duration: '60 min',
-            category: 'treatment',
+            category: 'haircare', // FIXED: Changed from 'treatment' to 'haircare'
             image: 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80'
         },
         {
-            name: 'Bridal Styling',
-            description: 'Special occasion bridal hair and makeup styling',
+            name: 'Bridal Makeup',
+            description: 'Special occasion bridal makeup application',
             price: 1500,
             duration: '90 min',
-            category: 'styling',
+            category: 'makeup', // FIXED: Changed from 'styling' to 'makeup'
             image: 'https://images.unsplash.com/photo-1511895426328-dc8714191300?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80'
         },
         {
-            name: 'Men\'s Grooming Package',
-            description: 'Haircut and beard trim package for men',
-            price: 500,
+            name: 'Relaxing Massage',
+            description: 'Full body relaxing massage therapy',
+            price: 800,
             duration: '60 min',
-            category: 'men',
-            image: 'https://images.unsplash.com/photo-1622287162716-f311baa1a2b8?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80'
+            category: 'massage', // NEW: Added massage service
+            image: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80'
         },
         {
-            name: 'Keratin Treatment',
-            description: 'Smoothing keratin treatment for frizzy hair',
-            price: 1800,
-            duration: '150 min',
-            category: 'treatment',
-            image: 'https://images.unsplash.com/photo-1599351431441-36e0f6c1e03e?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80'
+            name: 'Spa Pedicure',
+            description: 'Luxury foot care with massage and paraffin wax',
+            price: 550,
+            duration: '60 min',
+            category: 'nails', // NEW: Added nails service
+            image: 'https://images.unsplash.com/photo-1607778833979-4f2a0ee42b7c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80'
         },
         {
-            name: 'Kids Haircut',
-            description: 'Fun and gentle haircut for children',
-            price: 250,
-            duration: '30 min',
-            category: 'kids',
-            image: 'https://images.unsplash.com/photo-1515377905703-c4788e51af15?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80'
+            name: 'Anti-Aging Facial',
+            description: 'Luxury facial treatment with collagen-boosting ingredients',
+            price: 750,
+            duration: '45 min',
+            category: 'skincare', // NEW: Added skincare service
+            image: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80'
         }
     ];
 
@@ -235,13 +235,28 @@ const createGiftPackages = async (services, products) => {
             basePrice: 3200,
             image: 'https://images.unsplash.com/photo-1511895426328-dc8714191300?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
             includes: [
-                'Bridal Hair Styling',
-                'Professional Makeup',
+                'Bridal Makeup Application',
+                'Professional Hair Styling',
                 'Manicure & Pedicure',
-                'Pre-wedding Hair Treatment'
+                'Pre-wedding Skincare'
             ],
-            services: [services[3]._id, services[0]._id],
+            services: [services[3]._id, services[0]._id, services[6]._id],
             products: [products[0]._id, products[2]._id],
+            customizable: true
+        },
+        {
+            name: 'Spa Day Experience',
+            description: 'Complete relaxation and wellness package',
+            basePrice: 1800,
+            image: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
+            includes: [
+                'Relaxing Full Body Massage',
+                'Revitalizing Facial Treatment',
+                'Spa Pedicure',
+                'Aromatherapy Experience'
+            ],
+            services: [services[4]._id, services[6]._id, services[5]._id],
+            products: [products[1]._id, products[4]._id],
             customizable: true
         }
     ];
@@ -264,14 +279,14 @@ const createVouchers = async (staffUsers) => {
             description: 'Welcome discount for new customers'
         },
         {
-            code: 'HAIR25',
+            code: 'SPA25',
             discount: 25,
             type: 'percentage',
             maxUses: 50,
             usedCount: 18,
             isActive: true,
             validUntil: new Date('2025-11-30'),
-            description: 'Special hair services discount'
+            description: 'Special spa package discount'
         },
         {
             code: 'FIRST50',
@@ -282,6 +297,17 @@ const createVouchers = async (staffUsers) => {
             isActive: true,
             validUntil: new Date('2025-10-31'),
             description: 'First-time booking discount'
+        },
+        {
+            code: 'STAFF100',
+            discount: 100,
+            type: 'fixed',
+            maxUses: 20,
+            usedCount: 5,
+            isActive: true,
+            validUntil: new Date('2025-12-31'),
+            assignedTo: staffUsers[0]._id,
+            description: 'Staff appreciation voucher'
         }
     ];
 
