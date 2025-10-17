@@ -19,20 +19,24 @@ router.get('/', async (req, res) => {
       filter.inStock = inStock === 'true';
     }
     
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    
     const products = await Product.find(filter)
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
+      .limit(limitNum)
+      .skip((pageNum - 1) * limitNum)
       .sort({ createdAt: -1 });
     
     const total = await Product.countDocuments(filter);
     
     res.json({
       products,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
+      totalPages: Math.ceil(total / limitNum),
+      currentPage: pageNum,
       total
     });
   } catch (error) {
+    console.error('Get products error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -46,6 +50,10 @@ router.get('/:id', async (req, res) => {
     }
     res.json(product);
   } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid product ID' });
+    }
+    console.error('Get product by ID error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -54,6 +62,15 @@ router.get('/:id', async (req, res) => {
 router.post('/', adminAuth, async (req, res) => {
   try {
     const { name, description, price, category, image, inStock, stockQuantity, tags } = req.body;
+    
+    // Validation
+    if (!name || !price || !category) {
+      return res.status(400).json({ message: 'Name, price, and category are required' });
+    }
+    
+    if (price < 0) {
+      return res.status(400).json({ message: 'Price cannot be negative' });
+    }
     
     const product = new Product({
       name,
@@ -72,6 +89,7 @@ router.post('/', adminAuth, async (req, res) => {
     if (error.name === 'ValidationError') {
       return res.status(400).json({ message: 'Validation error', error: error.message });
     }
+    console.error('Create product error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -94,6 +112,10 @@ router.put('/:id', adminAuth, async (req, res) => {
     if (error.name === 'ValidationError') {
       return res.status(400).json({ message: 'Validation error', error: error.message });
     }
+    if (error.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid product ID' });
+    }
+    console.error('Update product error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -103,8 +125,17 @@ router.patch('/:id/stock', adminAuth, async (req, res) => {
   try {
     const { stockQuantity, inStock } = req.body;
     
+    if (stockQuantity === undefined && inStock === undefined) {
+      return res.status(400).json({ message: 'No fields to update' });
+    }
+    
     const updateData = {};
-    if (stockQuantity !== undefined) updateData.stockQuantity = stockQuantity;
+    if (stockQuantity !== undefined) {
+      if (stockQuantity < 0) {
+        return res.status(400).json({ message: 'Stock quantity cannot be negative' });
+      }
+      updateData.stockQuantity = stockQuantity;
+    }
     if (inStock !== undefined) updateData.inStock = inStock;
     
     const product = await Product.findByIdAndUpdate(
@@ -119,6 +150,10 @@ router.patch('/:id/stock', adminAuth, async (req, res) => {
     
     res.json(product);
   } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid product ID' });
+    }
+    console.error('Update stock error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -134,6 +169,10 @@ router.delete('/:id', adminAuth, async (req, res) => {
     
     res.json({ message: 'Product deleted successfully' });
   } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid product ID' });
+    }
+    console.error('Delete product error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -144,20 +183,24 @@ router.get('/category/:category', async (req, res) => {
     const { category } = req.params;
     const { page = 1, limit = 10 } = req.query;
     
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    
     const products = await Product.find({ category, inStock: true })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
+      .limit(limitNum)
+      .skip((pageNum - 1) * limitNum)
       .sort({ createdAt: -1 });
     
     const total = await Product.countDocuments({ category, inStock: true });
     
     res.json({
       products,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
+      totalPages: Math.ceil(total / limitNum),
+      currentPage: pageNum,
       total
     });
   } catch (error) {
+    console.error('Get products by category error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -168,20 +211,29 @@ router.get('/search/:query', async (req, res) => {
     const { query } = req.params;
     const { page = 1, limit = 10 } = req.query;
     
+    if (!query || query.trim() === '') {
+      return res.status(400).json({ message: 'Search query is required' });
+    }
+    
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    
+    const searchRegex = new RegExp(query, 'i');
+    
     const products = await Product.find({
       $and: [
         { inStock: true },
         {
           $or: [
-            { name: { $regex: query, $options: 'i' } },
-            { description: { $regex: query, $options: 'i' } },
-            { tags: { $in: [new RegExp(query, 'i')] } }
+            { name: searchRegex },
+            { description: searchRegex },
+            { tags: { $in: [searchRegex] } }
           ]
         }
       ]
     })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
+      .limit(limitNum)
+      .skip((pageNum - 1) * limitNum)
       .sort({ createdAt: -1 });
     
     const total = await Product.countDocuments({
@@ -189,9 +241,9 @@ router.get('/search/:query', async (req, res) => {
         { inStock: true },
         {
           $or: [
-            { name: { $regex: query, $options: 'i' } },
-            { description: { $regex: query, $options: 'i' } },
-            { tags: { $in: [new RegExp(query, 'i')] } }
+            { name: searchRegex },
+            { description: searchRegex },
+            { tags: { $in: [searchRegex] } }
           ]
         }
       ]
@@ -199,11 +251,12 @@ router.get('/search/:query', async (req, res) => {
     
     res.json({
       products,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
+      totalPages: Math.ceil(total / limitNum),
+      currentPage: pageNum,
       total
     });
   } catch (error) {
+    console.error('Search products error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

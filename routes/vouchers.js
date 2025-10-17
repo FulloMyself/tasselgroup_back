@@ -10,6 +10,7 @@ router.get('/', adminAuth, async (req, res) => {
     const vouchers = await Voucher.find().populate('assignedTo', 'name email');
     res.json(vouchers);
   } catch (error) {
+    console.error('Get vouchers error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -17,9 +18,10 @@ router.get('/', adminAuth, async (req, res) => {
 // Get staff's vouchers
 router.get('/my-vouchers', staffAuth, async (req, res) => {
   try {
-    const vouchers = await Voucher.find({ assignedTo: req.user._id });
+    const vouchers = await Voucher.find({ assignedTo: req.user._id }).populate('assignedTo', 'name email');
     res.json(vouchers);
   } catch (error) {
+    console.error('Get my vouchers error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -27,11 +29,36 @@ router.get('/my-vouchers', staffAuth, async (req, res) => {
 // Create voucher (admin only)
 router.post('/', adminAuth, async (req, res) => {
   try {
-    const voucher = new Voucher(req.body);
+    const { code, discountType, discountValue, expiresAt, assignedTo } = req.body;
+    
+    // Validation
+    if (!code || !discountType || !discountValue) {
+      return res.status(400).json({ message: 'Code, discount type, and discount value are required' });
+    }
+    
+    if (discountValue <= 0) {
+      return res.status(400).json({ message: 'Discount value must be positive' });
+    }
+    
+    const voucher = new Voucher({
+      code,
+      discountType,
+      discountValue,
+      expiresAt,
+      assignedTo
+    });
+    
     await voucher.save();
     await voucher.populate('assignedTo', 'name email');
     res.status(201).json(voucher);
   } catch (error) {
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: 'Validation error', error: error.message });
+    }
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'Voucher code already exists' });
+    }
+    console.error('Create voucher error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -48,8 +75,19 @@ router.put('/:id', adminAuth, async (req, res) => {
     if (!voucher) {
       return res.status(404).json({ message: 'Voucher not found' });
     }
+    
     res.json(voucher);
   } catch (error) {
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: 'Validation error', error: error.message });
+    }
+    if (error.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid voucher ID' });
+    }
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'Voucher code already exists' });
+    }
+    console.error('Update voucher error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -63,6 +101,10 @@ router.delete('/:id', adminAuth, async (req, res) => {
     }
     res.json({ message: 'Voucher deleted successfully' });
   } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid voucher ID' });
+    }
+    console.error('Delete voucher error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

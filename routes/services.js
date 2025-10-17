@@ -10,6 +10,7 @@ router.get('/', async (req, res) => {
     const services = await Service.find().populate('staff', 'name email');
     res.json(services);
   } catch (error) {
+    console.error('Get services error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -23,6 +24,10 @@ router.get('/:id', async (req, res) => {
     }
     res.json(service);
   } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid service ID' });
+    }
+    console.error('Get service by ID error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -30,10 +35,34 @@ router.get('/:id', async (req, res) => {
 // Create service (admin only)
 router.post('/', adminAuth, async (req, res) => {
   try {
-    const service = new Service(req.body);
+    const { name, description, price, duration, category, staff } = req.body;
+    
+    // Validation
+    if (!name || !price || !duration) {
+      return res.status(400).json({ message: 'Name, price, and duration are required' });
+    }
+    
+    if (price < 0) {
+      return res.status(400).json({ message: 'Price cannot be negative' });
+    }
+    
+    const service = new Service({
+      name,
+      description,
+      price,
+      duration,
+      category,
+      staff
+    });
+    
     await service.save();
+    await service.populate('staff', 'name email');
     res.status(201).json(service);
   } catch (error) {
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: 'Validation error', error: error.message });
+    }
+    console.error('Create service error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -45,12 +74,21 @@ router.put('/:id', adminAuth, async (req, res) => {
       req.params.id,
       req.body,
       { new: true, runValidators: true }
-    );
+    ).populate('staff', 'name email');
+    
     if (!service) {
       return res.status(404).json({ message: 'Service not found' });
     }
+    
     res.json(service);
   } catch (error) {
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: 'Validation error', error: error.message });
+    }
+    if (error.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid service ID' });
+    }
+    console.error('Update service error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -64,6 +102,10 @@ router.delete('/:id', adminAuth, async (req, res) => {
     }
     res.json({ message: 'Service deleted successfully' });
   } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid service ID' });
+    }
+    console.error('Delete service error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

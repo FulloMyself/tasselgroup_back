@@ -1,519 +1,312 @@
-// seedDatabase.js - Complete database seeding for Tassel Group
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const User = require('../models/User');
+const Product = require('../models/Product');
+const Service = require('../models/Service');
+const Voucher = require('../models/Voucher');
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/tasselgroup';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/tassel-group';
 
-// Import models
-const User = require('./models/User');
-const Product = require('./models/Product');
-const Service = require('./models/Service');
-const Booking = require('./models/Booking');
-const Order = require('./models/Order');
-const Voucher = require('./models/Voucher');
-const GiftPackage = require('./models/GiftPackage');
-const GiftOrder = require('./models/GiftOrder');
+const seedData = async () => {
+  try {
+    // Connect to MongoDB
+    await mongoose.connect(MONGODB_URI);
+    console.log('Connected to MongoDB');
 
-const connectDB = async () => {
-    try {
-        console.log('🔗 Connecting to MongoDB...');
-        await mongoose.connect(MONGODB_URI);
-        console.log('✅ MongoDB connected successfully!');
-    } catch (error) {
-        console.error('❌ MongoDB connection failed:', error.message);
-        process.exit(1);
-    }
-};
+    // Clear existing data
+    console.log('Clearing existing data...');
+    await User.deleteMany({});
+    await Product.deleteMany({});
+    await Service.deleteMany({});
+    await Voucher.deleteMany({});
+    console.log('Existing data cleared');
 
-const clearDatabase = async () => {
-    try {
-        console.log('🗑️  Clearing existing database...');
-        await mongoose.connection.db.dropDatabase();
-        console.log('✅ Database cleared successfully');
-    } catch (error) {
-        console.error('❌ Error clearing database:', error.message);
-        throw error;
-    }
-};
+    // Create admin user with Tassel Group email format
+    const adminUser = new User({
+      name: 'Admin User',
+      email: 'admin@tasselgroup.co.za',
+      password: await bcrypt.hash('admin123', 12),
+      role: 'admin',
+      phone: '+27123456789'
+    });
+    await adminUser.save();
+    console.log('Admin user created');
 
-const createUsers = async () => {
-    const users = [
-        {
-            name: 'Admin User',
-            email: 'admin@tasselgroup.co.za',
-            password: await bcrypt.hash('admin123', 12),
-            role: 'admin',
-            phone: '+27 21 123 4567',
-            address: '123 Admin Street, Cape Town'
-        },
-        {
-            name: 'Sarah Johnson',
-            email: 'sarah@tasselgroup.co.za',
-            password: await bcrypt.hash('staff123', 12),
-            role: 'staff',
-            phone: '+27 21 123 4568',
-            address: '124 Staff Street, Cape Town'
-        },
-        {
-            name: 'Michael Brown',
-            email: 'michael@tasselgroup.co.za',
-            password: await bcrypt.hash('staff123', 12),
-            role: 'staff',
-            phone: '+27 21 123 4569',
-            address: '125 Staff Street, Cape Town'
-        },
-        {
-            name: 'Emma Wilson',
-            email: 'emma@tasselgroup.co.za',
-            password: await bcrypt.hash('staff123', 12),
-            role: 'staff',
-            phone: '+27 21 123 4570',
-            address: '126 Staff Street, Cape Town'
-        },
-        {
-            name: 'John Smith',
-            email: 'john.smith@email.com',
-            password: await bcrypt.hash('customer123', 12),
-            role: 'customer',
-            phone: '+27 21 123 4571',
-            address: '127 Customer Avenue, Cape Town'
-        },
-        {
-            name: 'Lisa Davis',
-            email: 'lisa.davis@email.com',
-            password: await bcrypt.hash('customer123', 12),
-            role: 'customer',
-            phone: '+27 21 123 4572',
-            address: '128 Customer Road, Cape Town'
-        }
+    // Create staff users with Tassel Group email format
+    const staffUsers = [
+      {
+        name: 'Sarah Johnson',
+        email: 'sarah@tasselgroup.co.za',
+        password: await bcrypt.hash('staff123', 12),
+        role: 'staff',
+        phone: '+27123456780',
+        specialization: 'Hair Stylist'
+      },
+      {
+        name: 'Michael Brown',
+        email: 'michael@tasselgroup.co.za',
+        password: await bcrypt.hash('staff123', 12),
+        role: 'staff',
+        phone: '+27123456781',
+        specialization: 'Spa Therapist'
+      },
+      {
+        name: 'Lisa Davis',
+        email: 'lisa@tasselgroup.co.za',
+        password: await bcrypt.hash('staff123', 12),
+        role: 'staff',
+        phone: '+27123456782',
+        specialization: 'Nail Technician'
+      }
     ];
 
-    const createdUsers = await User.insertMany(users);
-    console.log(`✅ ${createdUsers.length} users created`);
-    return createdUsers;
-};
+    const savedStaffUsers = await User.insertMany(staffUsers);
+    console.log('Staff users created');
 
-const createProducts = async () => {
+    // Create customer users
+    const customerUsers = [
+      {
+        name: 'Emma Wilson',
+        email: 'emma@example.com',
+        password: await bcrypt.hash('customer123', 12),
+        role: 'customer',
+        phone: '+27123456783'
+      },
+      {
+        name: 'James Miller',
+        email: 'james@example.com',
+        password: await bcrypt.hash('customer123', 12),
+        role: 'customer',
+        phone: '+27123456784'
+      },
+      {
+        name: 'Sophia Garcia',
+        email: 'sophia@example.com',
+        password: await bcrypt.hash('customer123', 12),
+        role: 'customer',
+        phone: '+27123456785'
+      }
+    ];
+
+    await User.insertMany(customerUsers);
+    console.log('Customer users created');
+
+    // Create products for salon/spa business
     const products = [
-        {
-            name: 'Luxury Body Lotion',
-            description: 'Nourishing body lotion with natural ingredients',
-            price: 450,
-            category: 'skincare',
-            image: 'https://images.unsplash.com/photo-1556228578-8c89e6adf883?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
-            inStock: true,
-            stockQuantity: 50
-        },
-        {
-            name: 'Aromatherapy Candle Set',
-            description: 'Set of 3 luxury scented candles',
-            price: 680,
-            category: 'wellness',
-            image: 'https://images.unsplash.com/photo-1545979437-94e47d7bc7ab?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
-            inStock: true,
-            stockQuantity: 30
-        },
-        {
-            name: 'Premium Hair Serum',
-            description: 'Advanced hair serum for shine and frizz control',
-            price: 520,
-            category: 'haircare',
-            image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
-            inStock: true,
-            stockQuantity: 40
-        },
-        {
-            name: 'Facial Cleansing Kit',
-            description: 'Complete facial cleansing routine',
-            price: 890,
-            category: 'skincare',
-            image: 'https://images.unsplash.com/photo-1556228577-7a29e24d5af3?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
-            inStock: true,
-            stockQuantity: 25
-        },
-        {
-            name: 'Bath Salt Collection',
-            description: 'Luxury mineral bath salts in 4 scents',
-            price: 380,
-            category: 'wellness',
-            image: 'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
-            inStock: true,
-            stockQuantity: 60
-        }
+      {
+        name: 'Professional Hair Dryer',
+        description: 'High-speed professional hair dryer with multiple heat settings',
+        price: 899.99,
+        category: 'Hair Tools',
+        image: '/images/hair-dryer.jpg',
+        inStock: true,
+        stockQuantity: 15,
+        tags: ['hair', 'styling', 'professional']
+      },
+      {
+        name: 'Luxury Hair Serum',
+        description: 'Premium hair serum for shine and protection',
+        price: 249.99,
+        category: 'Hair Care',
+        image: '/images/hair-serum.jpg',
+        inStock: true,
+        stockQuantity: 30,
+        tags: ['haircare', 'serum', 'luxury']
+      },
+      {
+        name: 'Spa Massage Oil',
+        description: 'Aromatherapy massage oil for relaxation',
+        price: 189.99,
+        category: 'Spa Products',
+        image: '/images/massage-oil.jpg',
+        inStock: true,
+        stockQuantity: 25,
+        tags: ['spa', 'massage', 'aromatherapy']
+      },
+      {
+        name: 'Nail Polish Set',
+        description: 'Professional nail polish set with 12 colors',
+        price: 399.99,
+        category: 'Nail Care',
+        image: '/images/nail-polish.jpg',
+        inStock: true,
+        stockQuantity: 20,
+        tags: ['nail', 'polish', 'beauty']
+      },
+      {
+        name: 'Facial Cleanser',
+        description: 'Gentle facial cleanser for all skin types',
+        price: 179.99,
+        category: 'Skincare',
+        image: '/images/facial-cleanser.jpg',
+        inStock: false,
+        stockQuantity: 0,
+        tags: ['skincare', 'facial', 'cleanser']
+      },
+      {
+        name: 'Makeup Brush Set',
+        description: 'Complete professional makeup brush collection',
+        price: 599.99,
+        category: 'Makeup',
+        image: '/images/makeup-brushes.jpg',
+        inStock: true,
+        stockQuantity: 12,
+        tags: ['makeup', 'brushes', 'professional']
+      }
     ];
 
-    const createdProducts = await Product.insertMany(products);
-    console.log(`✅ ${createdProducts.length} products created`);
-    return createdProducts;
-};
+    const savedProducts = await Product.insertMany(products);
+    console.log('Products created');
 
-const createServices = async () => {
+    // Create services for salon/spa
     const services = [
-        {
-            name: 'Classic Haircut',
-            description: 'Professional haircut with styling and consultation',
-            price: 350,
-            duration: '45 min',
-            category: 'haircare', // FIXED: Changed from 'hair' to 'haircare'
-            image: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80'
-        },
-        {
-            name: 'Premium Hair Coloring',
-            description: 'Full hair coloring service with premium products',
-            price: 1200,
-            duration: '120 min',
-            category: 'haircare', // FIXED: Changed from 'color' to 'haircare'
-            image: 'https://images.unsplash.com/photo-1560869713-7d9aea7ebcd6?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80'
-        },
-        {
-            name: 'Deep Conditioning Treatment',
-            description: 'Intensive hair treatment for damaged hair',
-            price: 450,
-            duration: '60 min',
-            category: 'haircare', // FIXED: Changed from 'treatment' to 'haircare'
-            image: 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80'
-        },
-        {
-            name: 'Bridal Makeup',
-            description: 'Special occasion bridal makeup application',
-            price: 1500,
-            duration: '90 min',
-            category: 'makeup', // FIXED: Changed from 'styling' to 'makeup'
-            image: 'https://images.unsplash.com/photo-1511895426328-dc8714191300?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80'
-        },
-        {
-            name: 'Relaxing Massage',
-            description: 'Full body relaxing massage therapy',
-            price: 800,
-            duration: '60 min',
-            category: 'massage', // NEW: Added massage service
-            image: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80'
-        },
-        {
-            name: 'Spa Pedicure',
-            description: 'Luxury foot care with massage and paraffin wax',
-            price: 550,
-            duration: '60 min',
-            category: 'nails', // NEW: Added nails service
-            image: 'https://images.unsplash.com/photo-1607778833979-4f2a0ee42b7c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80'
-        },
-        {
-            name: 'Anti-Aging Facial',
-            description: 'Luxury facial treatment with collagen-boosting ingredients',
-            price: 750,
-            duration: '45 min',
-            category: 'skincare', // NEW: Added skincare service
-            image: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80'
-        }
+      {
+        name: 'Women\'s Haircut & Style',
+        description: 'Professional haircut with blow-dry styling',
+        price: 350.00,
+        duration: 60,
+        category: 'Hair',
+        staff: [savedStaffUsers[0]._id],
+        image: '/images/haircut-service.jpg'
+      },
+      {
+        name: 'Men\'s Haircut',
+        description: 'Classic men\'s haircut and styling',
+        price: 200.00,
+        duration: 30,
+        category: 'Hair',
+        staff: [savedStaffUsers[0]._id],
+        image: '/images/mens-haircut.jpg'
+      },
+      {
+        name: 'Full Body Massage',
+        description: '60-minute relaxing full body massage',
+        price: 450.00,
+        duration: 60,
+        category: 'Spa',
+        staff: [savedStaffUsers[1]._id],
+        image: '/images/body-massage.jpg'
+      },
+      {
+        name: 'Anti-Aging Facial',
+        description: 'Luxury facial treatment with anti-aging properties',
+        price: 380.00,
+        duration: 45,
+        category: 'Skincare',
+        staff: [savedStaffUsers[1]._id],
+        image: '/images/facial-treatment.jpg'
+      },
+      {
+        name: 'Manicure & Pedicure',
+        description: 'Complete hand and foot care with polish',
+        price: 280.00,
+        duration: 75,
+        category: 'Nails',
+        staff: [savedStaffUsers[2]._id],
+        image: '/images/manicure-pedicure.jpg'
+      },
+      {
+        name: 'Gel Nails',
+        description: 'Long-lasting gel nail application',
+        price: 320.00,
+        duration: 60,
+        category: 'Nails',
+        staff: [savedStaffUsers[2]._id],
+        image: '/images/gel-nails.jpg'
+      },
+      {
+        name: 'Bridal Makeup',
+        description: 'Professional bridal makeup application',
+        price: 650.00,
+        duration: 90,
+        category: 'Makeup',
+        staff: [savedStaffUsers[0]._id, savedStaffUsers[1]._id],
+        image: '/images/bridal-makeup.jpg'
+      }
     ];
 
-    const createdServices = await Service.insertMany(services);
-    console.log(`✅ ${createdServices.length} services created`);
-    return createdServices;
-};
+    const savedServices = await Service.insertMany(services);
+    console.log('Services created');
 
-const createGiftPackages = async (services, products) => {
-    const giftPackages = [
-        {
-            name: 'Complete Hair Makeover',
-            description: 'Full hair transformation package',
-            basePrice: 2500,
-            image: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
-            includes: [
-                'Professional Haircut & Styling',
-                'Premium Hair Coloring',
-                'Deep Conditioning Treatment',
-                'Styling Products Kit'
-            ],
-            services: [services[0]._id, services[1]._id, services[2]._id],
-            products: [products[2]._id],
-            customizable: true
-        },
-        {
-            name: 'Bridal Beauty Package',
-            description: 'Complete bridal preparation package',
-            basePrice: 3200,
-            image: 'https://images.unsplash.com/photo-1511895426328-dc8714191300?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
-            includes: [
-                'Bridal Makeup Application',
-                'Professional Hair Styling',
-                'Manicure & Pedicure',
-                'Pre-wedding Skincare'
-            ],
-            services: [services[3]._id, services[0]._id, services[6]._id],
-            products: [products[0]._id, products[2]._id],
-            customizable: true
-        },
-        {
-            name: 'Spa Day Experience',
-            description: 'Complete relaxation and wellness package',
-            basePrice: 1800,
-            image: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
-            includes: [
-                'Relaxing Full Body Massage',
-                'Revitalizing Facial Treatment',
-                'Spa Pedicure',
-                'Aromatherapy Experience'
-            ],
-            services: [services[4]._id, services[6]._id, services[5]._id],
-            products: [products[1]._id, products[4]._id],
-            customizable: true
-        }
-    ];
-
-    const createdGiftPackages = await GiftPackage.insertMany(giftPackages);
-    console.log(`✅ ${createdGiftPackages.length} gift packages created`);
-    return createdGiftPackages;
-};
-
-const createVouchers = async (staffUsers) => {
+    // Create vouchers
     const vouchers = [
-        {
-            code: 'WELCOME20',
-            discount: 20,
-            type: 'percentage',
-            maxUses: 100,
-            usedCount: 25,
-            isActive: true,
-            validUntil: new Date('2025-12-31'),
-            description: 'Welcome discount for new customers'
-        },
-        {
-            code: 'SPA25',
-            discount: 25,
-            type: 'percentage',
-            maxUses: 50,
-            usedCount: 18,
-            isActive: true,
-            validUntil: new Date('2025-11-30'),
-            description: 'Special spa package discount'
-        },
-        {
-            code: 'FIRST50',
-            discount: 50,
-            type: 'fixed',
-            maxUses: 30,
-            usedCount: 12,
-            isActive: true,
-            validUntil: new Date('2025-10-31'),
-            description: 'First-time booking discount'
-        },
-        {
-            code: 'STAFF100',
-            discount: 100,
-            type: 'fixed',
-            maxUses: 20,
-            usedCount: 5,
-            isActive: true,
-            validUntil: new Date('2025-12-31'),
-            assignedTo: staffUsers[0]._id,
-            description: 'Staff appreciation voucher'
-        }
+      {
+        code: 'WELCOME10',
+        discountType: 'percentage',
+        discountValue: 10,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        assignedTo: savedStaffUsers[0]._id,
+        isActive: true,
+        description: 'Welcome discount for new customers'
+      },
+      {
+        code: 'SUMMER25',
+        discountType: 'percentage',
+        discountValue: 25,
+        expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days from now
+        assignedTo: savedStaffUsers[1]._id,
+        isActive: true,
+        description: 'Summer special discount'
+      },
+      {
+        code: 'FIXED200',
+        discountType: 'fixed',
+        discountValue: 200,
+        expiresAt: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000), // 45 days from now
+        assignedTo: savedStaffUsers[2]._id,
+        isActive: true,
+        description: 'R200 off any service'
+      },
+      {
+        code: 'STAFF20',
+        discountType: 'percentage',
+        discountValue: 20,
+        expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days from now
+        assignedTo: savedStaffUsers[0]._id,
+        isActive: true,
+        description: 'Staff special discount'
+      },
+      {
+        code: 'FIRSTVISIT15',
+        discountType: 'percentage',
+        discountValue: 15,
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+        isActive: true,
+        description: 'First visit discount for new clients'
+      }
     ];
 
-    const createdVouchers = await Voucher.insertMany(vouchers);
-    console.log(`✅ ${createdVouchers.length} vouchers created`);
-    return createdVouchers;
+    const savedVouchers = await Voucher.insertMany(vouchers);
+    console.log('Vouchers created');
+
+    console.log('\n=== TASSEL GROUP SEED DATA SUMMARY ===');
+    console.log(`👑 Admin Users: 1 (admin@tasselgroup.co.za / admin123)`);
+    console.log(`👥 Staff Users: 3 (sarah@tasselgroup.co.za, michael@tasselgroup.co.za, lisa@tasselgroup.co.za / staff123)`);
+    console.log(`👤 Customer Users: 3 (emma@example.com, james@example.com, sophia@example.com / customer123)`);
+    console.log(`🛍️ Products: ${savedProducts.length}`);
+    console.log(`💅 Services: ${savedServices.length}`);
+    console.log(`🎫 Vouchers: ${savedVouchers.length}`);
+    console.log('=====================================\n');
+
+    console.log('✅ Tassel Group database seeded successfully!');
+
+  } catch (error) {
+    console.error('❌ Error seeding database:', error);
+    process.exit(1);
+  } finally {
+    await mongoose.connection.close();
+    console.log('📡 Database connection closed');
+  }
 };
 
-const createBookings = async (users, services, staffUsers) => {
-    const bookings = [];
-    const statuses = ['completed', 'completed', 'completed', 'confirmed', 'pending'];
-    const times = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'];
-    
-    for (let i = 0; i < 25; i++) {
-        const customer = users[4 + Math.floor(Math.random() * 2)];
-        const service = services[Math.floor(Math.random() * services.length)];
-        const staff = staffUsers[Math.floor(Math.random() * staffUsers.length)];
-        
-        const bookingDate = new Date();
-        bookingDate.setMonth(bookingDate.getMonth() - Math.floor(Math.random() * 6));
-        bookingDate.setDate(bookingDate.getDate() - Math.floor(Math.random() * 30));
-        
-        const booking = {
-            user: customer._id,
-            service: service._id,
-            staff: staff._id,
-            date: bookingDate,
-            time: times[Math.floor(Math.random() * times.length)],
-            duration: service.duration,
-            status: statuses[Math.floor(Math.random() * statuses.length)],
-            price: service.price,
-            specialRequests: i % 3 === 0 ? 'Please provide extra towels' : '',
-            createdAt: bookingDate,
-            updatedAt: bookingDate
-        };
-        
-        bookings.push(booking);
-    }
-
-    const createdBookings = await Booking.insertMany(bookings);
-    console.log(`✅ ${createdBookings.length} bookings created`);
-    return createdBookings;
-};
-
-const createOrders = async (users, products, staffUsers, vouchers) => {
-    const orders = [];
-    const statuses = ['delivered', 'delivered', 'shipped', 'confirmed', 'pending'];
-    const paymentMethods = ['card', 'cash', 'bank_transfer'];
-    
-    for (let i = 0; i < 20; i++) {
-        const customer = users[4 + Math.floor(Math.random() * 2)];
-        const staff = Math.random() > 0.3 ? staffUsers[Math.floor(Math.random() * staffUsers.length)] : null;
-        const useVoucher = Math.random() > 0.7;
-        const voucher = useVoucher ? vouchers[Math.floor(Math.random() * vouchers.length)] : null;
-        
-        const itemCount = Math.floor(Math.random() * 3) + 1;
-        const items = [];
-        let subtotal = 0;
-        
-        for (let j = 0; j < itemCount; j++) {
-            const product = products[Math.floor(Math.random() * products.length)];
-            const quantity = Math.floor(Math.random() * 2) + 1;
-            items.push({
-                product: product._id,
-                quantity: quantity,
-                price: product.price
-            });
-            subtotal += product.price * quantity;
-        }
-        
-        let discount = 0;
-        if (voucher) {
-            if (voucher.type === 'percentage') {
-                discount = (subtotal * voucher.discount) / 100;
-            } else {
-                discount = voucher.discount;
-            }
-            discount = Math.min(discount, subtotal);
-        }
-        
-        const finalTotal = subtotal - discount;
-        
-        const orderDate = new Date();
-        orderDate.setMonth(orderDate.getMonth() - Math.floor(Math.random() * 6));
-        orderDate.setDate(orderDate.getDate() - Math.floor(Math.random() * 30));
-        
-        const order = {
-            user: customer._id,
-            items: items,
-            total: subtotal,
-            finalTotal: finalTotal,
-            discount: discount,
-            status: statuses[Math.floor(Math.random() * statuses.length)],
-            shippingAddress: customer.address,
-            paymentMethod: paymentMethods[Math.floor(Math.random() * paymentMethods.length)],
-            processedBy: staff ? staff._id : null,
-            voucher: voucher ? voucher._id : null,
-            createdAt: orderDate,
-            updatedAt: orderDate
-        };
-        
-        orders.push(order);
-    }
-
-    const createdOrders = await Order.insertMany(orders);
-    console.log(`✅ ${createdOrders.length} orders created`);
-    return createdOrders;
-};
-
-const createGiftOrders = async (users, giftPackages, staffUsers) => {
-    const giftOrders = [];
-    const statuses = ['delivered', 'confirmed', 'pending'];
-    
-    for (let i = 0; i < 8; i++) {
-        const customer = users[4 + Math.floor(Math.random() * 2)];
-        const giftPackage = giftPackages[Math.floor(Math.random() * giftPackages.length)];
-        const staff = Math.random() > 0.5 ? staffUsers[Math.floor(Math.random() * staffUsers.length)] : null;
-        
-        const orderDate = new Date();
-        orderDate.setMonth(orderDate.getMonth() - Math.floor(Math.random() * 3));
-        orderDate.setDate(orderDate.getDate() - Math.floor(Math.random() * 30));
-        
-        const deliveryDate = new Date(orderDate);
-        deliveryDate.setDate(deliveryDate.getDate() + 7);
-        
-        const giftOrder = {
-            user: customer._id,
-            giftPackage: giftPackage._id,
-            recipientName: ['Jane Doe', 'Mike Johnson', 'Sarah Wilson', 'David Brown'][i % 4],
-            recipientEmail: ['jane@email.com', 'mike@email.com', 'sarah@email.com', 'david@email.com'][i % 4],
-            message: 'Hope you enjoy this relaxing experience!',
-            deliveryDate: deliveryDate,
-            price: giftPackage.basePrice,
-            status: statuses[Math.floor(Math.random() * statuses.length)],
-            assignedStaff: staff ? staff._id : null,
-            createdAt: orderDate,
-            updatedAt: orderDate
-        };
-        
-        giftOrders.push(giftOrder);
-    }
-
-    const createdGiftOrders = await GiftOrder.insertMany(giftOrders);
-    console.log(`✅ ${createdGiftOrders.length} gift orders created`);
-    return createdGiftOrders;
-};
-
-const seedDatabase = async () => {
-    try {
-        console.log('🌱 STARTING COMPLETE DATABASE SEEDING...');
-        
-        await connectDB();
-        await clearDatabase();
-        
-        const users = await createUsers();
-        const products = await createProducts();
-        const services = await createServices();
-        const giftPackages = await createGiftPackages(services, products);
-        
-        const staffUsers = users.filter(user => user.role === 'staff');
-        const customerUsers = users.filter(user => user.role === 'customer');
-        
-        const vouchers = await createVouchers(staffUsers);
-        const bookings = await createBookings(users, services, staffUsers);
-        const orders = await createOrders(users, products, staffUsers, vouchers);
-        const giftOrders = await createGiftOrders(users, giftPackages, staffUsers);
-        
-        console.log('\n🎉 DATABASE SEEDING COMPLETED SUCCESSFULLY!');
-        console.log('📊 SUMMARY:');
-        console.log(`   👥 Users: ${users.length} (${staffUsers.length} staff, ${customerUsers.length} customers)`);
-        console.log(`   📦 Products: ${products.length}`);
-        console.log(`   💇 Services: ${services.length}`);
-        console.log(`   🎁 Gift Packages: ${giftPackages.length}`);
-        console.log(`   🎫 Vouchers: ${vouchers.length}`);
-        console.log(`   📅 Bookings: ${bookings.length}`);
-        console.log(`   🛒 Orders: ${orders.length}`);
-        console.log(`   🎀 Gift Orders: ${giftOrders.length}`);
-        
-        const completedBookings = bookings.filter(b => b.status === 'completed');
-        const deliveredOrders = orders.filter(o => o.status === 'delivered');
-        const deliveredGiftOrders = giftOrders.filter(g => g.status === 'delivered');
-        
-        const totalRevenue = deliveredOrders.reduce((sum, order) => sum + order.finalTotal, 0) +
-                           completedBookings.reduce((sum, booking) => sum + (booking.price || 0), 0) +
-                           deliveredGiftOrders.reduce((sum, gift) => sum + (gift.price || 0), 0);
-        
-        console.log(`   💰 Total Revenue: R ${totalRevenue.toFixed(2)}`);
-        
-        console.log('\n🔑 TEST LOGINS:');
-        console.log('   Admin: admin@tasselgroup.co.za / admin123');
-        console.log('   Staff: sarah@tasselgroup.co.za / staff123');
-        console.log('   Customer: john.smith@email.com / customer123');
-        
-        console.log('\n📈 DASHBOARD READY: All charts should now work with real data!');
-        
-    } catch (error) {
-        console.error('❌ DATABASE SEEDING FAILED:', error);
-    } finally {
-        await mongoose.connection.close();
-        console.log('\n🔌 Database connection closed');
-        process.exit(0);
-    }
-};
-
+// Run seed if this file is executed directly
 if (require.main === module) {
-    seedDatabase();
+  seedData()
+    .then(() => process.exit(0))
+    .catch(error => {
+      console.error(error);
+      process.exit(1);
+    });
 }
 
-module.exports = { seedDatabase };
+module.exports = seedData;
