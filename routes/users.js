@@ -54,6 +54,33 @@ router.put('/profile', auth, async (req, res) => {
   }
 });
 
+// Search users (for staff/admin)
+router.get('/search', auth, async (req, res) => {
+    try {
+        const { q } = req.query;
+        
+        if (!q) {
+            return res.status(400).json({ success: false, message: 'Search query required' });
+        }
+
+        const users = await User.find({
+            $or: [
+                { name: { $regex: q, $options: 'i' } },
+                { email: { $regex: q, $options: 'i' } }
+            ]
+        }).select('name email phone role').limit(10);
+
+        res.json({
+            success: true,
+            users
+        });
+
+    } catch (error) {
+        console.error('User search error:', error);
+        res.status(500).json({ success: false, message: 'Error searching users' });
+    }
+});
+
 // Change password
 router.put('/change-password', auth, async (req, res) => {
   try {

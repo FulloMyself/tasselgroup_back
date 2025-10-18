@@ -164,7 +164,7 @@ router.get('/admin', adminAuth, async (req, res) => {
   }
 });
 
-// Staff dashboard - UPDATED
+// Staff dashboard - UPDATED WITH BETTER DATA
 router.get('/staff', staffAuth, async (req, res) => {
   try {
     console.log('👨‍💼 Loading staff dashboard for:', req.user.name);
@@ -240,32 +240,66 @@ router.get('/staff', staffAuth, async (req, res) => {
       .sort((a, b) => new Date(a.date) - new Date(b.date))
       .slice(0, 5);
 
-    // Recent sales from all sources
+    // Recent sales from all sources - FIXED TYPE MAPPING
     const recentSales = [
       ...staffOrders.map(order => ({
-        type: 'product',
-        description: `Sold ${order.items?.length || 0} products`,
+        type: 'order', // Changed from 'product' to 'order' for receipt compatibility
+        description: `Sold ${order.items?.length || 0} products to ${order.user?.name || 'Customer'}`,
         amount: order.finalTotal || order.total || 0,
         date: order.createdAt,
-        id: order._id
+        id: order._id,
+        customer: order.user?.name || 'Customer'
       })),
       ...staffBookings.map(booking => ({
-        type: 'service',
-        description: `Booked ${booking.service?.name || 'Service'}`,
+        type: 'booking',
+        description: `Booked ${booking.service?.name || 'Service'} for ${booking.user?.name || 'Customer'}`,
         amount: booking.service?.price || booking.price || 0,
         date: booking.createdAt,
-        id: booking._id
+        id: booking._id,
+        customer: booking.user?.name || 'Customer'
       })),
       ...staffGiftOrders.map(giftOrder => ({
         type: 'gift',
-        description: `Sold gift package`,
+        description: `Gift package for ${giftOrder.recipientName}`,
         amount: giftOrder.price || giftOrder.total || giftOrder.giftPackage?.basePrice || 0,
         date: giftOrder.createdAt,
-        id: giftOrder._id
+        id: giftOrder._id,
+        customer: giftOrder.user?.name || 'Customer'
       }))
     ]
       .sort((a, b) => new Date(b.date) - new Date(a.date))
       .slice(0, 5);
+
+    // Provide detailed data for the frontend
+    const detailedData = {
+      bookings: staffBookings.map(b => ({
+        _id: b._id,
+        type: 'booking',
+        createdAt: b.createdAt,
+        user: b.user,
+        service: b.service,
+        amount: b.service?.price || b.price || 0,
+        status: b.status
+      })),
+      orders: staffOrders.map(o => ({
+        _id: o._id,
+        type: 'order',
+        createdAt: o.createdAt,
+        user: o.user,
+        items: o.items,
+        amount: o.finalTotal || o.total || 0,
+        status: o.status
+      })),
+      giftOrders: staffGiftOrders.map(g => ({
+        _id: g._id,
+        type: 'gift',
+        createdAt: g.createdAt,
+        user: g.user,
+        giftPackage: g.giftPackage,
+        amount: g.price || g.total || g.giftPackage?.basePrice || 0,
+        status: g.status
+      }))
+    };
 
     res.json({
       success: true,
@@ -283,12 +317,7 @@ router.get('/staff', staffAuth, async (req, res) => {
       upcomingAppointments,
       recentSales,
       myVouchers: vouchers,
-      // Add detailed data for receipts
-      detailedData: {
-        bookings: staffBookings,
-        orders: staffOrders,
-        giftOrders: staffGiftOrders
-      }
+      detailedData // Send detailed data for frontend use
     });
 
   } catch (error) {
@@ -301,8 +330,7 @@ router.get('/staff', staffAuth, async (req, res) => {
   }
 });
 
-// NEW: Get printable receipt data
-// Get printable receipt data - CORRECTED VERSION
+// Get printable receipt data - UPDATED WITH PRODUCT SUPPORT
 router.get('/receipt/:type/:id', auth, async (req, res) => {
   try {
     const { type, id } = req.params;
@@ -313,7 +341,10 @@ router.get('/receipt/:type/:id', auth, async (req, res) => {
 
     let receiptData = null;
 
-    switch (type) {
+    // Map 'product' type to 'order' since products are sold through orders
+    const receiptType = type === 'product' ? 'order' : type;
+
+    switch (receiptType) {
       case 'booking':
         const booking = await Booking.findById(id)
           .populate('user', 'name email phone')
@@ -423,7 +454,10 @@ router.get('/receipt/:type/:id', auth, async (req, res) => {
         break;
 
       default:
-        return res.status(400).json({ success: false, message: 'Invalid receipt type' });
+        return res.status(400).json({ 
+          success: false, 
+          message: `Invalid receipt type: ${type}. Supported types: booking, order, product, gift` 
+        });
     }
 
     console.log('✅ Receipt data generated successfully');
