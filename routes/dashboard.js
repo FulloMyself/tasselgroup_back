@@ -302,11 +302,14 @@ router.get('/staff', staffAuth, async (req, res) => {
 });
 
 // NEW: Get printable receipt data
+// Get printable receipt data - CORRECTED VERSION
 router.get('/receipt/:type/:id', auth, async (req, res) => {
   try {
     const { type, id } = req.params;
     const userId = req.user._id;
     const userRole = req.user.role;
+
+    console.log(`📄 Generating receipt for ${type} with ID: ${id}`);
 
     let receiptData = null;
 
@@ -317,11 +320,15 @@ router.get('/receipt/:type/:id', auth, async (req, res) => {
           .populate('service', 'name price duration')
           .populate('staff', 'name email');
         
+        if (!booking) {
+          return res.status(404).json({ success: false, message: 'Booking not found' });
+        }
+
         // Check if user has permission to view this receipt
         if (userRole === 'customer' && booking.user._id.toString() !== userId.toString()) {
           return res.status(403).json({ success: false, message: 'Access denied' });
         }
-        if (userRole === 'staff' && booking.staff._id.toString() !== userId.toString()) {
+        if (userRole === 'staff' && booking.staff && booking.staff._id.toString() !== userId.toString()) {
           return res.status(403).json({ success: false, message: 'Access denied' });
         }
 
@@ -331,13 +338,15 @@ router.get('/receipt/:type/:id', auth, async (req, res) => {
           date: booking.createdAt,
           customer: booking.user.name,
           customerEmail: booking.user.email,
+          customerPhone: booking.user.phone,
           service: booking.service.name,
-          staff: booking.staff.name,
+          staff: booking.staff ? booking.staff.name : 'Not assigned',
           amount: booking.service.price,
           duration: booking.service.duration,
           bookingDate: booking.date,
           bookingTime: booking.time,
-          status: booking.status
+          status: booking.status,
+          specialRequests: booking.specialRequests || 'None'
         };
         break;
 
@@ -346,6 +355,10 @@ router.get('/receipt/:type/:id', auth, async (req, res) => {
           .populate('user', 'name email phone')
           .populate('items.product', 'name price')
           .populate('processedBy', 'name email');
+
+        if (!order) {
+          return res.status(404).json({ success: false, message: 'Order not found' });
+        }
 
         if (userRole === 'customer' && order.user._id.toString() !== userId.toString()) {
           return res.status(403).json({ success: false, message: 'Access denied' });
@@ -360,15 +373,17 @@ router.get('/receipt/:type/:id', auth, async (req, res) => {
           date: order.createdAt,
           customer: order.user.name,
           customerEmail: order.user.email,
+          customerPhone: order.user.phone,
           items: order.items.map(item => ({
             product: item.product.name,
             quantity: item.quantity,
             price: item.price,
             subtotal: item.quantity * item.price
           })),
-          total: order.finalTotal || order.total,
+          total: order.finalTotal || order.total || order.totalAmount || 0,
           processedBy: order.processedBy?.name || 'System',
-          status: order.status
+          status: order.status,
+          shippingAddress: order.shippingAddress || 'Not specified'
         };
         break;
 
@@ -377,6 +392,10 @@ router.get('/receipt/:type/:id', auth, async (req, res) => {
           .populate('user', 'name email phone')
           .populate('giftPackage', 'name basePrice')
           .populate('assignedStaff', 'name email');
+
+        if (!giftOrder) {
+          return res.status(404).json({ success: false, message: 'Gift order not found' });
+        }
 
         if (userRole === 'customer' && giftOrder.user._id.toString() !== userId.toString()) {
           return res.status(403).json({ success: false, message: 'Access denied' });
@@ -391,12 +410,13 @@ router.get('/receipt/:type/:id', auth, async (req, res) => {
           date: giftOrder.createdAt,
           customer: giftOrder.user.name,
           customerEmail: giftOrder.user.email,
+          customerPhone: giftOrder.user.phone,
           recipient: giftOrder.recipientName,
           recipientEmail: giftOrder.recipientEmail,
           giftPackage: giftOrder.giftPackage.name,
           amount: giftOrder.price || giftOrder.total || giftOrder.giftPackage.basePrice,
           message: giftOrder.message,
-          assignedStaff: giftOrder.assignedStaff?.name,
+          assignedStaff: giftOrder.assignedStaff?.name || 'Not assigned',
           deliveryDate: giftOrder.deliveryDate,
           status: giftOrder.status
         };
@@ -406,6 +426,8 @@ router.get('/receipt/:type/:id', auth, async (req, res) => {
         return res.status(400).json({ success: false, message: 'Invalid receipt type' });
     }
 
+    console.log('✅ Receipt data generated successfully');
+
     res.json({
       success: true,
       receipt: receiptData,
@@ -413,7 +435,9 @@ router.get('/receipt/:type/:id', auth, async (req, res) => {
         name: 'Tassel Group',
         email: 'info@tasselgroup.co.za',
         phone: '+27123456789',
-        address: '123 Beauty Street, Johannesburg, South Africa'
+        address: '123 Beauty Street, Johannesburg, South Africa',
+        vatNumber: 'VAT123456789',
+        registration: 'Reg: 2023/123456/07'
       }
     });
 
