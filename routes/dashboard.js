@@ -20,21 +20,14 @@ const safeCount = async (Model) => {
   }
 };
 
-// Admin dashboard stats - UPDATED to include admin in performance
+// Admin dashboard stats - FIXED VERSION
+// Admin dashboard stats - FIXED VERSION WITH ADMIN IN PERFORMANCE
 router.get('/admin', adminAuth, async (req, res) => {
   try {
     console.log('📊 Loading admin dashboard for:', req.user.name);
 
-    // Use Promise.all for parallel queries
-    const [
-      users,
-      products,
-      services,
-      allBookings,
-      allOrders,
-      allGiftOrders,
-      vouchers,
-    ] = await Promise.all([
+    // Use Promise.allSettled to handle individual failures
+    const results = await Promise.allSettled([
       User.find().lean(),
       Product.find().lean(),
       Service.find().lean(),
@@ -57,7 +50,27 @@ router.get('/admin', adminAuth, async (req, res) => {
         .lean()
     ]);
 
-    console.log('📊 Data loaded:', {
+    // Handle individual promise results
+    const [
+      usersResult,
+      productsResult,
+      servicesResult,
+      allBookingsResult,
+      allOrdersResult,
+      allGiftOrdersResult,
+      vouchersResult
+    ] = results;
+
+    // Extract data with fallbacks
+    const users = usersResult.status === 'fulfilled' ? usersResult.value : [];
+    const products = productsResult.status === 'fulfilled' ? productsResult.value : [];
+    const services = servicesResult.status === 'fulfilled' ? servicesResult.value : [];
+    const allBookings = allBookingsResult.status === 'fulfilled' ? allBookingsResult.value : [];
+    const allOrders = allOrdersResult.status === 'fulfilled' ? allOrdersResult.value : [];
+    const allGiftOrders = allGiftOrdersResult.status === 'fulfilled' ? allGiftOrdersResult.value : [];
+    const vouchers = vouchersResult.status === 'fulfilled' ? vouchersResult.value : [];
+
+    console.log('📊 Data loaded successfully:', {
       users: users.length,
       products: products.length,
       services: services.length,
@@ -67,17 +80,17 @@ router.get('/admin', adminAuth, async (req, res) => {
       vouchers: vouchers.length
     });
 
-    // Filter revenue data
-    const revenueOrders = allOrders.filter(order => 
-      order.status === 'paid' || order.status === 'pending' || order.status === 'delivered' || order.status === 'completed'
+    // SAFE data filtering with null checks
+    const revenueOrders = (allOrders || []).filter(order => 
+      order && (order.status === 'paid' || order.status === 'pending' || order.status === 'delivered' || order.status === 'completed')
     );
     
-    const revenueBookings = allBookings.filter(booking => 
-      booking.status === 'completed' || booking.status === 'confirmed'
+    const revenueBookings = (allBookings || []).filter(booking => 
+      booking && (booking.status === 'completed' || booking.status === 'confirmed')
     );
     
-    const revenueGiftOrders = allGiftOrders.filter(giftOrder => 
-      giftOrder.status === 'completed' || giftOrder.status === 'delivered' || giftOrder.status === 'paid'
+    const revenueGiftOrders = (allGiftOrders || []).filter(giftOrder => 
+      giftOrder && (giftOrder.status === 'completed' || giftOrder.status === 'delivered' || giftOrder.status === 'paid')
     );
 
     console.log('✅ Filtered revenue data:', {
@@ -86,28 +99,28 @@ router.get('/admin', adminAuth, async (req, res) => {
       revenueGiftOrders: revenueGiftOrders.length
     });
 
-    // Calculate stats
-    const totalUsers = users.length;
-    const totalProducts = products.length;
-    const totalServices = services.length;
-    const totalBookings = allBookings.length;
-    const totalOrders = allOrders.length;
-    const totalGiftOrders = allGiftOrders.length;
+    // Calculate stats with safe defaults
+    const totalUsers = users.length || 0;
+    const totalProducts = products.length || 0;
+    const totalServices = services.length || 0;
+    const totalBookings = allBookings.length || 0;
+    const totalOrders = allOrders.length || 0;
+    const totalGiftOrders = allGiftOrders.length || 0;
 
-    // Calculate total revenue
-    const ordersRevenue = revenueOrders.reduce((sum, order) => {
-      const orderTotal = order.finalTotal || order.total || order.totalAmount || 0;
-      return sum + orderTotal;
+    // Calculate total revenue with safe defaults
+    const ordersRevenue = (revenueOrders || []).reduce((sum, order) => {
+      const orderTotal = order?.finalTotal || order?.total || order?.totalAmount || 0;
+      return sum + (Number(orderTotal) || 0);
     }, 0);
     
-    const bookingsRevenue = revenueBookings.reduce((sum, booking) => {
-      const bookingPrice = booking.price || 0;
-      return sum + bookingPrice;
+    const bookingsRevenue = (revenueBookings || []).reduce((sum, booking) => {
+      const bookingPrice = booking?.service?.price || booking?.price || 0;
+      return sum + (Number(bookingPrice) || 0);
     }, 0);
     
-    const giftOrdersRevenue = revenueGiftOrders.reduce((sum, giftOrder) => {
-      const giftPrice = giftOrder.price || giftOrder.total || 0;
-      return sum + giftPrice;
+    const giftOrdersRevenue = (revenueGiftOrders || []).reduce((sum, giftOrder) => {
+      const giftPrice = giftOrder?.price || giftOrder?.total || giftOrder?.giftPackage?.basePrice || 0;
+      return sum + (Number(giftPrice) || 0);
     }, 0);
     
     const totalRevenue = ordersRevenue + bookingsRevenue + giftOrdersRevenue;
@@ -119,21 +132,23 @@ router.get('/admin', adminAuth, async (req, res) => {
       total: totalRevenue
     });
 
-    // Monthly revenue calculation
+    // Monthly revenue calculation with safe data
     const monthlyRevenue = calculateMonthlyRevenue(revenueOrders, revenueBookings, revenueGiftOrders);
     console.log('📈 Monthly Revenue Data:', monthlyRevenue);
 
-    // Get recent activity - include all for display
+    // Get recent activity
     const recentActivity = getRecentActivity(allBookings, allOrders, allGiftOrders);
 
     // Staff performance - NOW INCLUDES ADMIN
-    const staffUsers = users.filter(user => user.role === 'staff' || user.role === 'admin');
+    const staffUsers = (users || []).filter(user => user.role === 'staff' || user.role === 'admin');
     const staffPerformance = calculateStaffPerformance(allBookings, allOrders, allGiftOrders, staffUsers);
 
     // Popular services
     const popularServices = calculatePopularServices(allBookings);
 
+    // Send response
     res.json({
+      success: true,
       stats: {
         totalUsers,
         totalProducts,
@@ -149,7 +164,7 @@ router.get('/admin', adminAuth, async (req, res) => {
         }
       },
       monthlyRevenue,
-      recentActivity, // Changed from separate recentBookings/recentOrders
+      recentActivity,
       staffPerformance,
       popularServices
     });
@@ -159,7 +174,23 @@ router.get('/admin', adminAuth, async (req, res) => {
     res.status(500).json({ 
       success: false,
       message: 'Server error loading dashboard', 
-      error: error.message 
+      error: error.message,
+      // Provide basic fallback data
+      fallback: {
+        stats: {
+          totalUsers: 0,
+          totalProducts: 0,
+          totalServices: 0,
+          totalBookings: 0,
+          totalOrders: 0,
+          totalGiftOrders: 0,
+          totalRevenue: 0
+        },
+        monthlyRevenue: {},
+        recentActivity: [],
+        staffPerformance: [],
+        popularServices: []
+      }
     });
   }
 });
@@ -712,6 +743,7 @@ router.get('/gift-orders', adminAuth, async (req, res) => {
 });
 
 // UPDATED Helper functions
+// UPDATED: Monthly revenue with better error handling
 function calculateMonthlyRevenue(orders, bookings, giftOrders) {
   const monthlyRevenue = {};
   const now = new Date();
@@ -724,29 +756,50 @@ function calculateMonthlyRevenue(orders, bookings, giftOrders) {
   }
 
   // Add revenue from orders
-  orders.forEach(order => {
-    const orderDate = new Date(order.createdAt);
-    const monthKey = orderDate.toLocaleString('default', { month: 'short' }) + ' ' + orderDate.getFullYear();
-    if (monthlyRevenue[monthKey] !== undefined) {
-      monthlyRevenue[monthKey] += order.finalTotal || order.total || order.totalAmount || 0;
+  (orders || []).forEach(order => {
+    if (!order || !order.createdAt) return;
+    
+    try {
+      const orderDate = new Date(order.createdAt);
+      const monthKey = orderDate.toLocaleString('default', { month: 'short' }) + ' ' + orderDate.getFullYear();
+      if (monthlyRevenue[monthKey] !== undefined) {
+        const amount = order.finalTotal || order.total || order.totalAmount || 0;
+        monthlyRevenue[monthKey] += Number(amount) || 0;
+      }
+    } catch (error) {
+      console.error('Error processing order date:', error);
     }
   });
 
   // Add revenue from bookings
-  bookings.forEach(booking => {
-    const bookingDate = new Date(booking.createdAt);
-    const monthKey = bookingDate.toLocaleString('default', { month: 'short' }) + ' ' + bookingDate.getFullYear();
-    if (monthlyRevenue[monthKey] !== undefined) {
-      monthlyRevenue[monthKey] += booking.service?.price || booking.price || 0;
+  (bookings || []).forEach(booking => {
+    if (!booking || !booking.createdAt) return;
+    
+    try {
+      const bookingDate = new Date(booking.createdAt);
+      const monthKey = bookingDate.toLocaleString('default', { month: 'short' }) + ' ' + bookingDate.getFullYear();
+      if (monthlyRevenue[monthKey] !== undefined) {
+        const amount = booking.service?.price || booking.price || 0;
+        monthlyRevenue[monthKey] += Number(amount) || 0;
+      }
+    } catch (error) {
+      console.error('Error processing booking date:', error);
     }
   });
 
   // Add revenue from gift orders
-  giftOrders.forEach(giftOrder => {
-    const giftOrderDate = new Date(giftOrder.createdAt);
-    const monthKey = giftOrderDate.toLocaleString('default', { month: 'short' }) + ' ' + giftOrderDate.getFullYear();
-    if (monthlyRevenue[monthKey] !== undefined) {
-      monthlyRevenue[monthKey] += giftOrder.price || giftOrder.total || giftOrder.giftPackage?.basePrice || 0;
+  (giftOrders || []).forEach(giftOrder => {
+    if (!giftOrder || !giftOrder.createdAt) return;
+    
+    try {
+      const giftOrderDate = new Date(giftOrder.createdAt);
+      const monthKey = giftOrderDate.toLocaleString('default', { month: 'short' }) + ' ' + giftOrderDate.getFullYear();
+      if (monthlyRevenue[monthKey] !== undefined) {
+        const amount = giftOrder.price || giftOrder.total || giftOrder.giftPackage?.basePrice || 0;
+        monthlyRevenue[monthKey] += Number(amount) || 0;
+      }
+    } catch (error) {
+      console.error('Error processing gift order date:', error);
     }
   });
 
@@ -754,45 +807,103 @@ function calculateMonthlyRevenue(orders, bookings, giftOrders) {
   return monthlyRevenue;
 }
 
-// UPDATED: Staff performance now includes admin
+// UPDATED: Staff performance with better error handling
+// FIXED: Staff performance with consistent revenue filtering
 function calculateStaffPerformance(bookings, orders, giftOrders, staffUsers) {
+  if (!staffUsers || !Array.isArray(staffUsers)) {
+    return [];
+  }
+
+  // Use the same filtering logic as total revenue calculation
+  const revenueBookings = (bookings || []).filter(booking => 
+    booking && (booking.status === 'completed' || booking.status === 'confirmed')
+  );
+  
+  const revenueOrders = (orders || []).filter(order => 
+    order && (order.status === 'paid' || order.status === 'pending' || order.status === 'delivered' || order.status === 'completed')
+  );
+  
+  const revenueGiftOrders = (giftOrders || []).filter(giftOrder => 
+    giftOrder && (giftOrder.status === 'completed' || giftOrder.status === 'delivered' || giftOrder.status === 'paid')
+  );
+
   return staffUsers.map(staff => {
-    const staffBookings = bookings.filter(booking => 
-      booking.staff && booking.staff._id && booking.staff._id.toString() === staff._id.toString()
+    if (!staff || !staff._id) return null;
+
+    // Filter staff activities using the SAME revenue criteria
+    const staffBookings = revenueBookings.filter(booking => 
+      booking && booking.staff && booking.staff._id && booking.staff._id.toString() === staff._id.toString()
     );
     
-    const staffOrders = orders.filter(order =>
-      order.processedBy && order.processedBy._id && order.processedBy._id.toString() === staff._id.toString()
+    const staffOrders = revenueOrders.filter(order =>
+      order && order.processedBy && order.processedBy._id && order.processedBy._id.toString() === staff._id.toString()
     );
     
-    const staffGiftOrders = giftOrders.filter(giftOrder =>
-      giftOrder.assignedStaff && giftOrder.assignedStaff._id && giftOrder.assignedStaff._id.toString() === staff._id.toString()
+    const staffGiftOrders = revenueGiftOrders.filter(giftOrder =>
+      giftOrder && giftOrder.assignedStaff && giftOrder.assignedStaff._id && giftOrder.assignedStaff._id.toString() === staff._id.toString()
     );
 
-    const bookingRevenue = staffBookings.reduce((sum, booking) => sum + (booking.service?.price || booking.price || 0), 0);
-    const orderRevenue = staffOrders.reduce((sum, order) => sum + (order.finalTotal || order.total || order.totalAmount || 0), 0);
-    const giftRevenue = staffGiftOrders.reduce((sum, giftOrder) => sum + (giftOrder.price || giftOrder.total || giftOrder.giftPackage?.basePrice || 0), 0);
+    // Calculate revenue with the same logic as total revenue
+    const bookingRevenue = staffBookings.reduce((sum, booking) => {
+      const price = booking?.service?.price || booking?.price || 0;
+      return sum + (Number(price) || 0);
+    }, 0);
+    
+    const orderRevenue = staffOrders.reduce((sum, order) => {
+      const total = order?.finalTotal || order?.total || order?.totalAmount || 0;
+      return sum + (Number(total) || 0);
+    }, 0);
+    
+    const giftRevenue = staffGiftOrders.reduce((sum, giftOrder) => {
+      const price = giftOrder?.price || giftOrder?.total || giftOrder?.giftPackage?.basePrice || 0;
+      return sum + (Number(price) || 0);
+    }, 0);
     
     const totalRevenue = bookingRevenue + orderRevenue + giftRevenue;
     const totalActivities = staffBookings.length + staffOrders.length + staffGiftOrders.length;
-    
+
+    console.log(`💰 Staff ${staff.name} (${staff.role}):`, {
+      bookings: { count: staffBookings.length, revenue: bookingRevenue },
+      orders: { count: staffOrders.length, revenue: orderRevenue },
+      gifts: { count: staffGiftOrders.length, revenue: giftRevenue },
+      totalRevenue: totalRevenue
+    });
+
     return {
       _id: staff._id,
-      name: staff.name,
-      email: staff.email,
-      role: staff.role,
+      name: staff.name || 'Unknown Staff',
+      email: staff.email || '',
+      role: staff.role || 'staff',
       totalBookings: staffBookings.length,
       totalOrders: staffOrders.length,
       totalGiftOrders: staffGiftOrders.length,
       totalActivities: totalActivities,
-      totalRevenue: totalRevenue,
+      totalRevenue: Math.round(totalRevenue * 100) / 100,
       breakdown: {
-        bookings: bookingRevenue,
-        orders: orderRevenue,
-        gifts: giftRevenue
-      }
+        bookings: Math.round(bookingRevenue * 100) / 100,
+        orders: Math.round(orderRevenue * 100) / 100,
+        gifts: Math.round(giftRevenue * 100) / 100
+      },
+      isAdmin: staff.role === 'admin'
     };
-  }).sort((a, b) => b.totalRevenue - a.totalRevenue);
+  })
+  .filter(staff => staff !== null)
+  .sort((a, b) => (b.totalRevenue || 0) - (a.totalRevenue || 0));
+}
+
+// Helper function to calculate performance score
+function calculatePerformanceScore(revenue, activities, role) {
+  if (activities === 0) return 0;
+  
+  const revenuePerActivity = revenue / activities;
+  let score = (revenuePerActivity / 1000) * 100; // Base score on R1000 per activity
+  
+  // Adjust for role - admins might have different performance expectations
+  if (role === 'admin') {
+    score = score * 1.2; // Admins get 20% bonus for oversight role
+  }
+  
+  return Math.min(Math.round(score), 100); // Cap at 100
 }
 
 // NEW: Get recent activity combining all types
