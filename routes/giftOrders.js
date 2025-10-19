@@ -65,6 +65,42 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
+router.patch('/:id/status', staffAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        console.log(`🔄 Updating gift order ${id} status to: ${status}`);
+
+        const giftOrder = await GiftOrder.findByIdAndUpdate(
+            id,
+            { status },
+            { new: true }
+        ).populate('user giftPackage assignedStaff');
+
+        if (!giftOrder) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Gift order not found' 
+            });
+        }
+
+        console.log(`✅ Gift order status updated successfully: ${giftOrder.status}`);
+        res.json({ 
+            success: true, 
+            giftOrder 
+        });
+
+    } catch (error) {
+        console.error('❌ Gift order status update error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Error updating gift order status',
+            error: error.message 
+        });
+    }
+});
+
 // Get user's gift orders
 router.get('/my-gift-orders', auth, async (req, res) => {
   try {

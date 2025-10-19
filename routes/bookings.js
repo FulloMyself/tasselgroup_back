@@ -105,6 +105,42 @@ router.get('/', staffAuth, async (req, res) => {
   }
 });
 
+router.patch('/:id/status', staffAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        console.log(`🔄 Updating booking ${id} status to: ${status}`);
+
+        const booking = await Booking.findByIdAndUpdate(
+            id,
+            { status },
+            { new: true }
+        ).populate('user service staff');
+
+        if (!booking) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Booking not found' 
+            });
+        }
+
+        console.log(`✅ Booking status updated successfully: ${booking.status}`);
+        res.json({ 
+            success: true, 
+            booking 
+        });
+
+    } catch (error) {
+        console.error('❌ Booking status update error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Error updating booking status',
+            error: error.message 
+        });
+    }
+});
+
 // Get bookings by staff member
 router.get('/staff/:staffId', staffAuth, async (req, res) => {
   try {

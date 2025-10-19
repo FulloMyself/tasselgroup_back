@@ -138,6 +138,42 @@ router.put('/:id/status', staffAuth, async (req, res) => {
   }
 });
 
+router.patch('/:id/status', staffAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        console.log(`🔄 Updating order ${id} status to: ${status}`);
+
+        const order = await Order.findByIdAndUpdate(
+            id,
+            { status },
+            { new: true }
+        ).populate('user items.product processedBy');
+
+        if (!order) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Order not found' 
+            });
+        }
+
+        console.log(`✅ Order status updated successfully: ${order.status}`);
+        res.json({ 
+            success: true, 
+            order 
+        });
+
+    } catch (error) {
+        console.error('❌ Order status update error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Error updating order status',
+            error: error.message 
+        });
+    }
+});
+
 // In routes/orders.js - Add public stats
 router.get('/public-stats', async (req, res) => {
     try {
@@ -169,6 +205,43 @@ router.get('/public-stats', async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Add to your dashboard routes
+router.get('/orders/my-orders', auth, async (req, res) => {
+    try {
+        const orders = await Order.find({ user: req.user._id })
+            .populate('items.product', 'name price')
+            .populate('processedBy', 'name')
+            .sort({ createdAt: -1 });
+        res.json(orders);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/bookings/my-bookings', auth, async (req, res) => {
+    try {
+        const bookings = await Booking.find({ user: req.user._id })
+            .populate('service', 'name price duration')
+            .populate('staff', 'name')
+            .sort({ createdAt: -1 });
+        res.json(bookings);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/gift-orders/my-gifts', auth, async (req, res) => {
+    try {
+        const gifts = await GiftOrder.find({ user: req.user._id })
+            .populate('giftPackage', 'name basePrice')
+            .populate('assignedStaff', 'name')
+            .sort({ createdAt: -1 });
+        res.json(gifts);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 

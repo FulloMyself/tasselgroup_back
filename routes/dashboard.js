@@ -485,6 +485,66 @@ router.get('/receipt/:type/:id', auth, async (req, res) => {
   }
 });
 
+// Add these routes to your existing dashboard.js file
+
+// Customer dashboard routes
+router.get('/orders/my-orders', auth, async (req, res) => {
+    try {
+        const orders = await Order.find({ user: req.user._id })
+            .populate('items.product', 'name price')
+            .populate('processedBy', 'name')
+            .sort({ createdAt: -1 });
+        res.json(orders);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/bookings/my-bookings', auth, async (req, res) => {
+    try {
+        const bookings = await Booking.find({ user: req.user._id })
+            .populate('service', 'name price duration')
+            .populate('staff', 'name')
+            .sort({ createdAt: -1 });
+        res.json(bookings);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/gift-orders/my-gifts', auth, async (req, res) => {
+    try {
+        const gifts = await GiftOrder.find({ user: req.user._id })
+            .populate('giftPackage', 'name basePrice')
+            .populate('assignedStaff', 'name')
+            .sort({ createdAt: -1 });
+        res.json(gifts);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// User search endpoint
+router.get('/users/search', auth, async (req, res) => {
+    try {
+        const { q } = req.query;
+        if (!q) {
+            return res.status(400).json({ error: 'Search query required' });
+        }
+
+        const users = await User.find({
+            $or: [
+                { name: { $regex: q, $options: 'i' } },
+                { email: { $regex: q, $options: 'i' } }
+            ]
+        }).select('name email phone role');
+
+        res.json({ users });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // NEW: Get user activity for receipts (admin/staff can view their users' activities)
 router.get('/user-activity/:userId', auth, async (req, res) => {
   try {
@@ -531,6 +591,124 @@ router.get('/user-activity/:userId', auth, async (req, res) => {
       error: error.message
     });
   }
+});
+
+// Add these routes to your existing routes
+
+// Status update routes
+router.patch('/orders/:id/status', adminAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        const order = await Order.findByIdAndUpdate(
+            id,
+            { status },
+            { new: true }
+        );
+
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+
+        res.json({ success: true, order });
+    } catch (error) {
+        console.error('Order status update error:', error);
+        res.status(500).json({ success: false, message: 'Error updating order status' });
+    }
+});
+
+router.patch('/bookings/:id/status', adminAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        const booking = await Booking.findByIdAndUpdate(
+            id,
+            { status },
+            { new: true }
+        );
+
+        if (!booking) {
+            return res.status(404).json({ success: false, message: 'Booking not found' });
+        }
+
+        res.json({ success: true, booking });
+    } catch (error) {
+        console.error('Booking status update error:', error);
+        res.status(500).json({ success: false, message: 'Error updating booking status' });
+    }
+});
+
+router.patch('/gift-orders/:id/status', adminAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        const giftOrder = await GiftOrder.findByIdAndUpdate(
+            id,
+            { status },
+            { new: true }
+        );
+
+        if (!giftOrder) {
+            return res.status(404).json({ success: false, message: 'Gift order not found' });
+        }
+
+        res.json({ success: true, giftOrder });
+    } catch (error) {
+        console.error('Gift order status update error:', error);
+        res.status(500).json({ success: false, message: 'Error updating gift order status' });
+    }
+});
+
+// Data fetching routes for admin management
+router.get('/orders', adminAuth, async (req, res) => {
+    try {
+        const orders = await Order.find()
+            .populate('user', 'name email')
+            .populate('items.product', 'name price')
+            .populate('processedBy', 'name')
+            .sort({ createdAt: -1 })
+            .limit(50);
+
+        res.json({ success: true, orders });
+    } catch (error) {
+        console.error('Orders fetch error:', error);
+        res.status(500).json({ success: false, message: 'Error fetching orders' });
+    }
+});
+
+router.get('/bookings', adminAuth, async (req, res) => {
+    try {
+        const bookings = await Booking.find()
+            .populate('user', 'name email')
+            .populate('service', 'name price')
+            .populate('staff', 'name')
+            .sort({ createdAt: -1 })
+            .limit(50);
+
+        res.json({ success: true, bookings });
+    } catch (error) {
+        console.error('Bookings fetch error:', error);
+        res.status(500).json({ success: false, message: 'Error fetching bookings' });
+    }
+});
+
+router.get('/gift-orders', adminAuth, async (req, res) => {
+    try {
+        const giftOrders = await GiftOrder.find()
+            .populate('user', 'name email')
+            .populate('giftPackage', 'name basePrice')
+            .populate('assignedStaff', 'name')
+            .sort({ createdAt: -1 })
+            .limit(50);
+
+        res.json({ success: true, giftOrders });
+    } catch (error) {
+        console.error('Gift orders fetch error:', error);
+        res.status(500).json({ success: false, message: 'Error fetching gift orders' });
+    }
 });
 
 // UPDATED Helper functions
