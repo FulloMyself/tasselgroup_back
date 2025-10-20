@@ -36,6 +36,20 @@ const bookingSchema = new mongoose.Schema({
     enum: ['pending', 'confirmed', 'completed', 'cancelled'],
     default: 'pending'
   },
+  // ADDED: Payment fields
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'processing', 'completed', 'failed', 'refunded', 'manual'],
+    default: 'pending'
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['card', 'cash', 'payfast', 'manual', 'bank_transfer'],
+    default: 'card'
+  },
+  paymentReference: {
+    type: String
+  },
   price: {
     type: Number,
     required: true

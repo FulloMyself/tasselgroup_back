@@ -40,6 +40,20 @@ const giftOrderSchema = new mongoose.Schema({
     enum: ['pending', 'confirmed', 'delivered', 'cancelled'],
     default: 'pending'
   },
+  // ADDED: Payment fields
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'processing', 'completed', 'failed', 'refunded', 'manual'],
+    default: 'pending'
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['card', 'cash', 'payfast', 'manual', 'bank_transfer'],
+    default: 'card'
+  },
+  paymentReference: {
+    type: String
+  },
   assignedStaff: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'

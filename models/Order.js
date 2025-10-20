@@ -17,8 +17,7 @@ const orderItemSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
-
-   processedBy: {
+  processedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }
@@ -41,14 +40,23 @@ const orderSchema = new mongoose.Schema({
     enum: ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'],
     default: 'pending'
   },
-  shippingAddress: {
+  // ADDED: Payment status field
+  paymentStatus: {
     type: String,
-    required: true
+    enum: ['pending', 'processing', 'completed', 'failed', 'refunded', 'manual'],
+    default: 'pending'
   },
   paymentMethod: {
     type: String,
-    enum: ['card', 'cash', 'bank_transfer'],
+    enum: ['card', 'cash', 'payfast', 'manual', 'bank_transfer'],
     default: 'card'
+  },
+  paymentReference: {
+    type: String
+  },
+  shippingAddress: {
+    type: String,
+    required: true
   },
   processedBy: {
     type: mongoose.Schema.Types.ObjectId,
