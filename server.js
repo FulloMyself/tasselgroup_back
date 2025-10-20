@@ -55,6 +55,7 @@ const Order = require('./models/Order');
 const Voucher = require('./models/Voucher');
 const GiftPackage = require('./models/GiftPackage');
 const GiftOrder = require('./models/GiftOrder');
+const paymentRoutes = require('./routes/payment');
 
 // Auth Middleware
 const auth = require('./middleware/auth');
@@ -70,6 +71,7 @@ app.use('/api/vouchers', require('./routes/vouchers'));
 app.use('/api/gift-packages', require('./routes/giftPackages'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/gift-orders', require('./routes/giftOrders'));
+app.use('/api/payment', paymentRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
