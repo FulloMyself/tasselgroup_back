@@ -37,7 +37,7 @@ const giftOrderSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'delivered', 'cancelled'],
+    enum: ['pending', 'confirmed', 'scheduled', 'delivered', 'cancelled'],
     default: 'pending'
   },
   // ADDED: Payment fields
