@@ -9,16 +9,31 @@ const { auth } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Payfast configuration
+// Dynamic URL configuration for deployed environment
+const getBackendUrl = () => {
+  return process.env.BACKEND_URL || 'https://tasselgroup-back.onrender.com';
+};
+
+const getFrontendUrl = () => {
+  return process.env.FRONTEND_URL || 'https://fullomyself.github.io/tasselgroupwebapplication';
+};
+
+// Payfast configuration with dynamic URLs
 const PAYFAST_CONFIG = {
   merchantId: process.env.PAYFAST_MERCHANT_ID || '10000100',
   merchantKey: process.env.PAYFAST_MERCHANT_KEY || '46f0cd694581a',
   passPhrase: process.env.PAYFAST_PASSPHRASE || '',
-  returnUrl: process.env.PAYFAST_RETURN_URL || `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/payment/success`,
-  cancelUrl: process.env.PAYFAST_CANCEL_URL || `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/payment/cancel`,
-  notifyUrl: process.env.PAYFAST_NOTIFY_URL || `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/payment/notify`,
+  returnUrl: `${getBackendUrl()}/api/payment/success`,
+  cancelUrl: `${getBackendUrl()}/api/payment/cancel`,
+  notifyUrl: `${getBackendUrl()}/api/payment/notify`,
   env: process.env.PAYFAST_ENV || 'sandbox'
 };
+
+console.log('🔗 Payfast URLs configured:', {
+  returnUrl: PAYFAST_CONFIG.returnUrl,
+  notifyUrl: PAYFAST_CONFIG.notifyUrl,
+  cancelUrl: PAYFAST_CONFIG.cancelUrl
+});
 
 // Email configuration
 const emailTransporter = nodemailer.createTransport({
@@ -47,7 +62,6 @@ testEmailConnection();
 
 // Generate Payfast payment signature
 function generateSignature(data, passPhrase = '') {
-  // Create parameter string
   let pfOutput = '';
   const keys = Object.keys(data).sort();
   
@@ -57,10 +71,8 @@ function generateSignature(data, passPhrase = '') {
     }
   });
   
-  // Remove last ampersand
   let getString = pfOutput.slice(0, -1);
   
-  // Add passphrase if provided
   if (passPhrase && passPhrase !== '') {
     getString += `&passphrase=${encodeURIComponent(passPhrase.trim()).replace(/%20/g, '+')}`;
   }
@@ -78,13 +90,13 @@ router.post('/initiate', auth, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Valid type and total amount are required' });
     }
 
-    console.log('💰 Payment initiation:', { type, totalAmount, user: user.name });
+    console.log('💰 Payment initiation from:', getBackendUrl(), { type, totalAmount, user: user.name });
 
     // Generate unique merchant reference
     const timestamp = Date.now();
     const merchantReference = `TG${timestamp}${user._id.toString().slice(-4)}`;
 
-    // Prepare Payfast data with ALL required fields
+    // Prepare Payfast data
     const payfastData = {
       merchant_id: PAYFAST_CONFIG.merchantId,
       merchant_key: PAYFAST_CONFIG.merchantKey,
@@ -101,10 +113,10 @@ router.post('/initiate', auth, async (req, res) => {
       // Payment details
       m_payment_id: merchantReference,
       amount: parseFloat(totalAmount).toFixed(2),
-      item_name: `Tassel Group ${type.charAt(0).toUpperCase() + type.slice(1)} Order`.substring(0, 100),
-      item_description: `Payment for ${type} order at Tassel Group`.substring(0, 255),
+      item_name: `Tassel Group ${type.charAt(0).toUpperCase() + type.slice(1)}`.substring(0, 100),
+      item_description: `Payment for ${type} order`.substring(0, 255),
       
-      // Custom data for callback
+      // Custom data
       custom_int1: user._id.toString(),
       custom_str1: type,
       custom_str2: JSON.stringify({ 
@@ -114,12 +126,12 @@ router.post('/initiate', auth, async (req, res) => {
         staffId: staffId || null
       }),
       
-      // Additional required fields for Payfast
+      // Additional Payfast fields
       email_confirmation: 1,
       confirmation_address: 'info@tasselgroup.co.za'
     };
 
-    // Remove empty fields that might cause issues
+    // Clean empty fields
     Object.keys(payfastData).forEach(key => {
       if (payfastData[key] === '' || payfastData[key] === null || payfastData[key] === undefined) {
         delete payfastData[key];
@@ -133,10 +145,10 @@ router.post('/initiate', auth, async (req, res) => {
       ? 'https://www.payfast.co.za/eng/process'
       : 'https://sandbox.payfast.co.za/eng/process';
 
-    console.log('🔗 Payfast data prepared:', {
+    console.log('🔗 Payfast redirect prepared:', {
       merchantReference,
       amount: payfastData.amount,
-      payfastUrl
+      backend: getBackendUrl()
     });
 
     res.json({
@@ -161,29 +173,30 @@ router.get('/success', async (req, res) => {
   try {
     const { m_payment_id, payment_status } = req.query;
     
-    console.log('✅ Payment return - Success:', { m_payment_id, payment_status });
+    console.log('✅ Payment return success to:', getBackendUrl(), { m_payment_id, payment_status });
     
+    const frontendUrl = getFrontendUrl();
     if (payment_status === 'COMPLETE') {
-      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/?payment=success&reference=${m_payment_id}`);
+      res.redirect(`${frontendUrl}/?payment=success&reference=${m_payment_id}`);
     } else {
-      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/?payment=cancelled`);
+      res.redirect(`${frontendUrl}/?payment=cancelled`);
     }
   } catch (error) {
     console.error('Payment success handling error:', error);
-    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/?payment=error`);
+    res.redirect(`${getFrontendUrl()}/?payment=error`);
   }
 });
 
 router.get('/cancel', async (req, res) => {
-  console.log('❌ Payment cancelled by user');
-  res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/?payment=cancelled`);
+  console.log('❌ Payment cancelled from:', getBackendUrl());
+  res.redirect(`${getFrontendUrl()}/?payment=cancelled`);
 });
 
-// Handle Payfast ITN
+// Handle Payfast ITN (Instant Transaction Notification)
 router.post('/notify', async (req, res) => {
   try {
     const itnData = { ...req.body };
-    console.log('📩 ITN Received:', itnData);
+    console.log('📩 ITN Received at:', getBackendUrl(), itnData);
     
     const signature = itnData.signature;
     
@@ -237,7 +250,7 @@ router.post('/manual-order', auth, async (req, res) => {
     const { type, items, totalAmount, bookingData, giftData, staffId } = req.body;
     const user = req.user;
 
-    console.log('📧 Manual order received:', { type, user: user.name, totalAmount });
+    console.log('📧 Manual order received at:', getBackendUrl(), { type, user: user.name, totalAmount });
 
     let result;
     switch (type) {
@@ -273,7 +286,7 @@ router.post('/manual-order', auth, async (req, res) => {
   }
 });
 
-// Helper functions
+// Helper functions (keep your existing createOrderRecord, createManualOrder, etc.)
 async function createOrderRecord(type, userId, amount, reference, customData) {
   const user = await User.findById(userId);
   if (!user) throw new Error('User not found');
@@ -399,7 +412,7 @@ async function createManualGift(user, giftData, staffId) {
   return { reference: giftOrder._id.toString(), type: 'gift' };
 }
 
-// Email sending functions
+// Email sending functions (keep your existing email functions)
 async function sendConfirmationEmails(userId, type, reference, amount, customData) {
   try {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
