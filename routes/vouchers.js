@@ -1,11 +1,12 @@
 const express = require('express');
 const Voucher = require('../models/Voucher');
 const { auth, adminAuth, staffAuth } = require('../middleware/auth');
+const cacheMiddleware = require('../middleware/cache');
 
 const router = express.Router();
 
 // Get all vouchers (admin only)
-router.get('/', adminAuth, async (req, res) => {
+router.get('/', cacheMiddleware(300), adminAuth, async (req, res) => {
   try {
     const vouchers = await Voucher.find().populate('assignedTo', 'name email');
     res.json(vouchers);
@@ -26,26 +27,33 @@ router.get('/my-vouchers', staffAuth, async (req, res) => {
   }
 });
 
-// Create voucher (admin only)
+// Create voucher (admin only) - FIXED VERSION
 router.post('/', adminAuth, async (req, res) => {
   try {
-    const { code, discountType, discountValue, expiresAt, assignedTo } = req.body;
+    const { code, type, discount, validUntil, assignedTo, maxUses, description } = req.body;
     
-    // Validation
-    if (!code || !discountType || !discountValue) {
-      return res.status(400).json({ message: 'Code, discount type, and discount value are required' });
+    // Validation - FIXED FIELD NAMES
+    if (!code || !type || !discount || !validUntil) {
+      return res.status(400).json({ message: 'Code, type, discount, and validUntil are required' });
     }
     
-    if (discountValue <= 0) {
+    if (discount <= 0) {
       return res.status(400).json({ message: 'Discount value must be positive' });
     }
     
+    if (type === 'percentage' && discount > 100) {
+      return res.status(400).json({ message: 'Percentage discount cannot exceed 100%' });
+    }
+    
     const voucher = new Voucher({
-      code,
-      discountType,
-      discountValue,
-      expiresAt,
-      assignedTo
+      code: code.toUpperCase().trim(),
+      type, // 'percentage' or 'fixed'
+      discount: Number(discount),
+      validUntil: new Date(validUntil),
+      assignedTo: assignedTo || null, // Make optional
+      maxUses: maxUses || 1,
+      description: description || '',
+      isActive: true
     });
     
     await voucher.save();
@@ -63,12 +71,24 @@ router.post('/', adminAuth, async (req, res) => {
   }
 });
 
-// Update voucher (admin only)
+// Update voucher (admin only) - FIXED VERSION
 router.put('/:id', adminAuth, async (req, res) => {
   try {
+    const { code, type, discount, validUntil, assignedTo, maxUses, description, isActive } = req.body;
+    
+    const updateData = {};
+    if (code) updateData.code = code.toUpperCase().trim();
+    if (type) updateData.type = type;
+    if (discount !== undefined) updateData.discount = Number(discount);
+    if (validUntil) updateData.validUntil = new Date(validUntil);
+    if (assignedTo !== undefined) updateData.assignedTo = assignedTo;
+    if (maxUses !== undefined) updateData.maxUses = maxUses;
+    if (description !== undefined) updateData.description = description;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
     const voucher = await Voucher.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     ).populate('assignedTo', 'name email');
 

@@ -6,6 +6,7 @@ const Booking = require('../models/Booking');
 const GiftOrder = require('../models/GiftOrder');
 const User = require('../models/User');
 const { auth } = require('../middleware/auth');
+const cacheMiddleware = require('../middleware/cache');
 
 const router = express.Router();
 
@@ -50,31 +51,31 @@ testEmailConnection();
 function generateSignature(data, passPhrase = '') {
   let pfOutput = '';
   const keys = Object.keys(data).sort();
-  
+
   keys.forEach(key => {
     if (data[key] !== '' && data[key] !== null && data[key] !== undefined) {
       pfOutput += `${key}=${encodeURIComponent(data[key].toString().trim()).replace(/%20/g, '+')}&`;
     }
   });
-  
+
   let getString = pfOutput.slice(0, -1);
-  
+
   if (passPhrase && passPhrase !== '') {
     getString += `&passphrase=${encodeURIComponent(passPhrase.trim()).replace(/%20/g, '+')}`;
   }
-  
+
   return crypto.createHash('md5').update(getString).digest('hex');
 }
 
 // Format phone number for Payfast (remove all non-numeric characters)
 function formatPhoneNumber(phone) {
   if (!phone) return '';
-  
+
   // Remove all non-numeric characters
   const cleaned = phone.replace(/\D/g, '');
-  
+
   console.log('📱 Phone number cleaning:', { original: phone, cleaned: cleaned });
-  
+
   // Handle South African numbers
   if (cleaned.startsWith('27') && cleaned.length === 11) {
     // Already in 27XXXXXXXXX format
@@ -86,7 +87,7 @@ function formatPhoneNumber(phone) {
     // Assume it's already without country code but valid
     return '27' + cleaned;
   }
-  
+
   // If it doesn't match expected formats, return empty to avoid validation errors
   console.log('⚠️ Phone number format not recognized, skipping:', cleaned);
   return '';
@@ -111,12 +112,13 @@ router.post('/initiate', auth, async (req, res) => {
 
     // Format phone number for Payfast - ONLY if valid South African number
     const formattedPhone = formatPhoneNumber(user.phone);
-    console.log('📱 Final phone number check:', { 
-      original: user.phone, 
+    console.log('📱 Final phone number check:', {
+      original: user.phone,
       formatted: formattedPhone,
       isValid: formattedPhone.length === 11 && formattedPhone.startsWith('27')
     });
 
+    // Prepare Payfast data for PRODUCTION with proper formatting
     // Prepare Payfast data for PRODUCTION with proper formatting
     const payfastData = {
       // Merchant details
@@ -125,32 +127,34 @@ router.post('/initiate', auth, async (req, res) => {
       return_url: PAYFAST_CONFIG.returnUrl,
       cancel_url: PAYFAST_CONFIG.cancelUrl,
       notify_url: PAYFAST_CONFIG.notifyUrl,
-      
+
       // Customer details
       name_first: (user.name.split(' ')[0] || 'Customer').substring(0, 100),
       name_last: (user.name.split(' ').slice(1).join(' ') || 'User').substring(0, 100),
       email_address: user.email.substring(0, 100),
-      
+
       // Payment details
       m_payment_id: merchantReference,
       amount: parseFloat(totalAmount).toFixed(2),
       item_name: `Tassel Group ${type.charAt(0).toUpperCase() + type.slice(1)}`.substring(0, 100),
       item_description: `Payment for ${type} order`.substring(0, 255),
-      
+
       // Custom data
-      custom_int1: parseInt(user._id.toString().replace(/[^0-9]/g, '').slice(-9)) || 123456789,
+      custom_int1: Date.now(), // <-- Numeric value required by Payfast. Use the current timestamp or your own order number.
       custom_str1: type.substring(0, 255),
-      custom_str2: JSON.stringify({ 
+      custom_str2: JSON.stringify({
         items: items || [],
         bookingData: bookingData || {},
         giftData: giftData || {},
-        staffId: staffId || null
+        staffId: staffId || null,
+        userId: user._id // Store the real MongoID here, optionally
       }).substring(0, 255),
-      
+
       // Additional Payfast fields
       email_confirmation: 1,
       confirmation_address: 'info@tasselgroup.co.za'
     };
+
 
     // ONLY add cell_number if it's a properly formatted South African number
     if (formattedPhone && formattedPhone.length === 11 && formattedPhone.startsWith('27')) {
@@ -192,10 +196,10 @@ router.post('/initiate', auth, async (req, res) => {
 
   } catch (error) {
     console.error('❌ Payment initiation error:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Error initiating payment',
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -204,9 +208,9 @@ router.post('/initiate', auth, async (req, res) => {
 router.get('/success', async (req, res) => {
   try {
     const { m_payment_id, payment_status } = req.query;
-    
+
     console.log('✅ Payment return success:', { m_payment_id, payment_status });
-    
+
     const frontendUrl = process.env.FRONTEND_URL || 'https://fullomyself.github.io/tasselgroupwebapplication';
     if (payment_status === 'COMPLETE') {
       res.redirect(`${frontendUrl}/?payment=success&reference=${m_payment_id}`);
@@ -229,13 +233,13 @@ router.post('/notify', async (req, res) => {
   try {
     const itnData = { ...req.body };
     console.log('📩 PRODUCTION ITN Received:', itnData);
-    
+
     const signature = itnData.signature;
-    
+
     // Verify signature
     delete itnData.signature;
     const calculatedSignature = generateSignature(itnData, PAYFAST_CONFIG.passPhrase);
-    
+
     if (signature !== calculatedSignature) {
       console.error('❌ ITN signature verification failed');
       return res.status(400).send('Signature verification failed');
@@ -244,9 +248,9 @@ router.post('/notify', async (req, res) => {
     const paymentStatus = itnData.payment_status;
     const merchantReference = itnData.m_payment_id;
     const amount = parseFloat(itnData.amount_gross);
-    
+
     // FIXED: Parse custom_int1 as number and convert back to string for user ID
-    const customInt1 = itnData.custom_int1 ? itnData.custom_int1.toString() : null;
+    const customInt1 = itnData.custom_int1 ? itnData.custom_int1 : null;
     const type = itnData.custom_str1;
     const customData = JSON.parse(itnData.custom_str2 || '{}');
 
@@ -261,10 +265,10 @@ router.post('/notify', async (req, res) => {
     if (paymentStatus === 'COMPLETE' && customInt1) {
       // Create the order/booking/gift record
       const result = await createOrderRecord(type, customInt1, amount, merchantReference, customData);
-      
+
       // Send confirmation emails
       await sendConfirmationEmails(customInt1, type, merchantReference, amount, customData);
-      
+
       console.log('✅ PRODUCTION Payment processed successfully:', result);
     } else {
       console.log('⚠️ Payment not completed or missing user ID:', paymentStatus);
@@ -339,7 +343,7 @@ async function createOrderRecord(type, userId, amount, reference, customData) {
   }
 
   let record;
-  
+
   switch (type) {
     case 'order':
       record = new Order({
@@ -359,7 +363,7 @@ async function createOrderRecord(type, userId, amount, reference, customData) {
         shippingAddress: user.address || 'Not specified'
       });
       break;
-      
+
     case 'booking':
       record = new Booking({
         user: user._id,
@@ -375,7 +379,7 @@ async function createOrderRecord(type, userId, amount, reference, customData) {
         price: amount
       });
       break;
-      
+
     case 'gift':
       record = new GiftOrder({
         user: user._id,
@@ -392,7 +396,7 @@ async function createOrderRecord(type, userId, amount, reference, customData) {
         price: amount
       });
       break;
-      
+
     default:
       throw new Error('Invalid order type');
   }

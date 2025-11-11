@@ -18,7 +18,7 @@ const productSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['skincare', 'haircare', 'wellness', 'makeup', 'fragrance']
+    enum: ['skincare', 'haircare', 'Wellness', 'wellness', 'makeup', 'fragrance']
   },
   image: {
     type: String,

@@ -1,6 +1,7 @@
 const express = require('express');
 const User = require('../models/User');
 const { auth, adminAuth } = require('../middleware/auth');
+const cacheMiddleware = require('../middleware/cache');
 
 const router = express.Router();
 
@@ -99,6 +100,23 @@ router.put('/change-password', auth, async (req, res) => {
     res.json({ message: 'Password updated successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+router.get('/test', async (req, res) => {
+  try {
+    const orders = await Order.find().limit(5);
+    res.json({ 
+      success: true, 
+      message: 'Orders route is working',
+      orderCount: orders.length,
+      orders: orders 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      message: 'Orders route error: ' + error.message 
+    });
   }
 });
 

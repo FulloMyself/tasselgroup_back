@@ -22,7 +22,7 @@ const serviceSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['massage', 'skincare', 'makeup', 'wellness', 'nails', 'haircare', 'spa']
+    enum: ['massage', 'Massage', 'skincare', 'Skincare', 'makeup', 'Makeup', 'wellness', 'Wellness', 'nails', 'Nails', 'haircare', 'Haircare', 'spa', 'Spa']
   },
   available: {
     type: Boolean,

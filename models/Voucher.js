@@ -4,7 +4,7 @@ const voucherSchema = new mongoose.Schema({
   code: {
     type: String,
     required: true,
-    unique: true,
+    unique: true, // This automatically creates an index - REMOVE THE DUPLICATE
     uppercase: true,
     trim: true
   },
@@ -22,7 +22,7 @@ const voucherSchema = new mongoose.Schema({
   assignedTo: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: false // Change from true to false
+    required: false
   },
   used: {
     type: Number,
@@ -50,8 +50,7 @@ const voucherSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for better query performance
-voucherSchema.index({ code: 1 });
+// Index for better query performance - REMOVED code:1 index (duplicate)
 voucherSchema.index({ assignedTo: 1 });
 voucherSchema.index({ validUntil: 1 });
 voucherSchema.index({ isActive: 1 });
@@ -86,7 +85,7 @@ voucherSchema.methods.applyDiscount = function (originalAmount) {
   }
 
   return {
-    discountAmount: Math.round(discountAmount * 100) / 100, // Round to 2 decimal places
+    discountAmount: Math.round(discountAmount * 100) / 100,
     finalAmount: Math.round((originalAmount - discountAmount) * 100) / 100
   };
 };
@@ -115,15 +114,25 @@ voucherSchema.methods.markAsUsed = function () {
   return this.save();
 };
 
-// Static method to find valid voucher
-voucherSchema.statics.findValidVoucher = function (code, staffId) {
-  return this.findOne({
-    code: code.toUpperCase(),
-    assignedTo: staffId,
+// Static method to find valid voucher - FIXED VERSION
+voucherSchema.statics.findValidVoucher = function (code, staffId = null) {
+  const query = {
+    code: code.toUpperCase().trim(),
     isActive: true,
     validUntil: { $gte: new Date() },
     $expr: { $lt: ['$used', '$maxUses'] }
-  }).populate('assignedTo', 'name email');
+  };
+  
+  // Handle both assigned and unassigned vouchers
+  if (staffId) {
+    query.$or = [
+      { assignedTo: staffId },
+      { assignedTo: { $exists: false } },
+      { assignedTo: null }
+    ];
+  }
+  
+  return this.findOne(query).populate('assignedTo', 'name email');
 };
 
 // Static method to get voucher usage statistics
@@ -175,4 +184,4 @@ voucherSchema.pre('save', function (next) {
 voucherSchema.set('toJSON', { virtuals: true });
 voucherSchema.set('toObject', { virtuals: true });
 
-module.exports = mongoose.model('Voucher', voucherSchema);
+module.exports = mongoose.models.Voucher || mongoose.model('Voucher', voucherSchema);

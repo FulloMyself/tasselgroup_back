@@ -1,13 +1,11 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const app = express();
 
-// ✅ FIXED CORS Configuration - Now includes PATCH method
+// CORS Configuration
 const corsOptions = {
     origin: [
         'http://localhost:3000',
@@ -18,25 +16,19 @@ const corsOptions = {
         'https://fullomyself.github.io/tasselgroupwebapplication'
     ],
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"], // ✅ PATCH added here
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"]
 };
 
 app.use(cors(corsOptions));
-
-// Handle preflight requests globally
 app.options('*', cors(corsOptions));
-
 app.use(express.json());
 app.use(express.static('public'));
 
-// MongoDB Connection
+// MongoDB Connection (CLEAN VERSION)
 const connectDB = async () => {
     try {
-        await mongoose.connect(process.env.MONGODB_URI, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-        });
+        await mongoose.connect(process.env.MONGODB_URI);
         console.log('✅ MongoDB Connected');
     } catch (error) {
         console.error('❌ MongoDB connection failed:', error.message);
@@ -45,20 +37,6 @@ const connectDB = async () => {
 };
 
 connectDB();
-
-// MongoDB Models
-const User = require('./models/User');
-const Product = require('./models/Product');
-const Service = require('./models/Service');
-const Booking = require('./models/Booking');
-const Order = require('./models/Order');
-const Voucher = require('./models/Voucher');
-const GiftPackage = require('./models/GiftPackage');
-const GiftOrder = require('./models/GiftOrder');
-const paymentRoutes = require('./routes/payment');
-
-// Auth Middleware
-const auth = require('./middleware/auth');
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
@@ -71,14 +49,15 @@ app.use('/api/vouchers', require('./routes/vouchers'));
 app.use('/api/gift-packages', require('./routes/giftPackages'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/gift-orders', require('./routes/giftOrders'));
-app.use('/api/payment', paymentRoutes);
+app.use('/api/payment', require('./routes/payment'));
 
 // Health check
 app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'OK', 
         message: 'Tassel Group API is running',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development'
     });
 });
 
@@ -87,14 +66,13 @@ app.get('/', (req, res) => {
     res.json({ 
         message: 'Tassel Group API',
         version: '1.0.0',
-        environment: process.env.NODE_ENV
+        environment: process.env.NODE_ENV || 'development'
     });
 });
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
-    console.log(`🔗 CORS configured for:`, corsOptions.origin);
-    console.log(`✅ Allowed methods:`, corsOptions.methods); // This will show PATCH is included
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔗 CORS configured for production`);
 });

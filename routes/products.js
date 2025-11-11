@@ -1,11 +1,12 @@
 const express = require('express');
 const Product = require('../models/Product');
 const { auth, adminAuth } = require('../middleware/auth');
+const cacheMiddleware = require('../middleware/cache');
 
 const router = express.Router();
 
 // Get all products
-router.get('/', async (req, res) => {
+router.get('/', cacheMiddleware(300), async (req, res) => {
   try {
     const { category, inStock, page = 1, limit = 10 } = req.query;
     

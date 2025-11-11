@@ -4,15 +4,23 @@ const { auth, adminAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get all gift packages
+// Get all gift packages - FIXED VERSION
 router.get('/', async (req, res) => {
   try {
     const giftPackages = await GiftPackage.find()
       .populate('services', 'name price duration')
-      .populate('products', 'name price image');
+      .populate('products', 'name price image')
+      .lean(); // ADD THIS LINE - returns plain JavaScript objects
+    
+    console.log(`✅ Found ${giftPackages.length} gift packages`);
     res.json(giftPackages);
+    
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('❌ Get gift packages error:', error);
+    res.status(500).json({ 
+      message: 'Server error', 
+      error: error.message 
+    });
   }
 });
 

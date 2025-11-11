@@ -7,6 +7,7 @@ const Order = require('../models/Order');
 const Voucher = require('../models/Voucher');
 const GiftOrder = require('../models/GiftOrder');
 const { auth, adminAuth, staffAuth } = require('../middleware/auth');
+const cacheMiddleware = require('../middleware/cache');
 
 const router = express.Router();
 
@@ -20,7 +21,6 @@ const safeCount = async (Model) => {
   }
 };
 
-// Admin dashboard stats - FIXED VERSION
 // Admin dashboard stats - FIXED VERSION WITH ADMIN IN PERFORMANCE
 router.get('/admin', adminAuth, async (req, res) => {
   try {
@@ -192,6 +192,37 @@ router.get('/admin', adminAuth, async (req, res) => {
         popularServices: []
       }
     });
+  }
+});
+
+// Advanced revenue analytics
+router.get('/analytics/revenue-trends', adminAuth, async (req, res) => {
+  try {
+    const { period = 'monthly' } = req.query; // monthly, weekly, daily
+    
+    const revenueData = await Order.aggregate([
+      {
+        $match: {
+          paymentStatus: 'completed',
+          createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } // Last 30 days
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
+          },
+          revenue: { $sum: "$finalTotal" },
+          orders: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    res.json({ success: true, revenueData });
+  } catch (error) {
+    console.error('Revenue analytics error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching revenue analytics' });
   }
 });
 

@@ -7,7 +7,10 @@ const router = express.Router();
 // Get all services
 router.get('/', async (req, res) => {
   try {
-    const services = await Service.find().populate('staff', 'name email');
+    const services = await Service.find({ available: true })
+      .populate('staff', 'name email')
+      .lean();
+    
     res.json(services);
   } catch (error) {
     console.error('Get services error:', error);
@@ -15,22 +18,24 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get service by ID
+// Get gift package by ID - ALSO FIX THIS ONE
 router.get('/:id', async (req, res) => {
   try {
-    const service = await Service.findById(req.params.id).populate('staff', 'name email');
-    if (!service) {
-      return res.status(404).json({ message: 'Service not found' });
+    const giftPackage = await GiftPackage.findById(req.params.id)
+      .populate('services', 'name price duration')
+      .populate('products', 'name price image')
+      .lean(); // FIX: Add .lean() here too
+    
+    if (!giftPackage) {
+      return res.status(404).json({ message: 'Gift package not found' });
     }
-    res.json(service);
+    res.json(giftPackage);
   } catch (error) {
-    if (error.name === 'CastError') {
-      return res.status(400).json({ message: 'Invalid service ID' });
-    }
-    console.error('Get service by ID error:', error);
+    console.error('❌ Get gift package by ID error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
+
 
 // Create service (admin only)
 router.post('/', adminAuth, async (req, res) => {
