@@ -1,0 +1,6 @@
+.env
+node_modules/
+.env.production
+checkUsers.js
+seedDatabase.js
+verify-login.js
