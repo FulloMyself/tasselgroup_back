@@ -30,7 +30,7 @@ router.post('/register', async (req, res) => {
     const user = new User({
       name: name.trim(),
       email: email.toLowerCase().trim(),
-      password: await bcrypt.hash(password, 12),
+      password: password, // Let pre-save hook handle hashing
       phone: phone?.trim() || '',
       address: address?.trim() || '',
       role: 'customer'
