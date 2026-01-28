@@ -711,7 +711,7 @@ function generateCustomerEmailTemplate(type, user, reference, amount, customData
           <!-- Next Steps -->
           <div class="highlight">
             <h4 style="color: #8B6F47; margin-top: 0;">What happens next?</h4>
-            <p>✅ Our team will contact you within 24 hours to confirm your order details</p>
+            <p>✅ Our team will contact you within 12 hours to confirm your order details</p>
             <p>✅ You'll receive updates on your order status via email</p>
             <p>✅ For bookings: We'll confirm your appointment time</p>
             <p>✅ For gifts: We'll arrange delivery with the recipient</p>
