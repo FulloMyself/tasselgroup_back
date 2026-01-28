@@ -542,57 +542,201 @@ function generateAdminEmailTemplate(type, user, reference, amount, customData) {
 }
 
 function generateCustomerEmailTemplate(type, user, reference, amount, customData) {
+  // Helper function to safely get items
+  const getItems = () => {
+    if (!customData || !customData.items) return [];
+    
+    // Handle different possible structures
+    if (Array.isArray(customData.items)) {
+      return customData.items;
+    } else if (typeof customData.items === 'object') {
+      // Convert object to array
+      return Object.values(customData.items);
+    }
+    
+    return [];
+  };
+
+  // Helper function to generate items HTML
+  const generateItemsHtml = () => {
+    const items = getItems();
+    
+    if (items.length === 0) {
+      return '<p><em>No items listed</em></p>';
+    }
+    
+    return `
+      <ul style="list-style: none; padding: 0; margin: 15px 0;">
+        ${items.map(item => {
+          const itemName = item.name || item.productName || 'Product';
+          const itemPrice = parseFloat(item.price || 0).toFixed(2);
+          const itemQuantity = parseInt(item.quantity || 1);
+          const itemTotal = (itemPrice * itemQuantity).toFixed(2);
+          
+          return `
+            <li style="padding: 8px 0; border-bottom: 1px solid #eee;">
+              <strong>${itemName}</strong><br>
+              <small>Quantity: ${itemQuantity} × R ${itemPrice} = R ${itemTotal}</small>
+            </li>
+          `;
+        }).join('')}
+      </ul>
+    `;
+  };
+
+  // Helper function to calculate subtotal from items
+  const calculateItemsSubtotal = () => {
+    const items = getItems();
+    if (items.length === 0) return 0;
+    
+    return items.reduce((total, item) => {
+      const price = parseFloat(item.price || 0);
+      const quantity = parseInt(item.quantity || 1);
+      return total + (price * quantity);
+    }, 0);
+  };
+
+  // Format amount
+  const formattedAmount = parseFloat(amount || 0).toFixed(2);
+  
+  // Calculate delivery and voucher amounts
+  const deliveryFee = parseFloat(customData?.deliveryFee || 0);
+  const voucherAmount = parseFloat(customData?.voucherAmount || 0);
+  const itemsSubtotal = calculateItemsSubtotal();
+  
   return `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #8a6d3b;">Thank You for Your Order!</h2>
-      <p>Dear ${user.name},</p>
-      
-      <p>We have received your ${type} order and will process it shortly.</p>
-      
-      <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
-        <h3 style="color: #8a6d3b; margin-top: 0;">Order Summary</h3>
-        <p><strong>Order Reference:</strong> ${reference}</p>
-        <p><strong>Order Type:</strong> ${type.charAt(0).toUpperCase() + type.slice(1)}</p>
-        <p><strong>Total Amount:</strong> R ${amount.toFixed(2)}</p>
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #8B6F47; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background-color: #f9f9f9; }
+        .order-details { background: white; padding: 20px; border-radius: 5px; margin: 15px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .totals { background: #f0f7ff; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 14px; }
+        .highlight { background-color: #e8f4f8; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .item-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .item-name { flex: 2; }
+        .item-details { flex: 1; text-align: right; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <!-- Header -->
+        <div class="header">
+          <h1 style="margin: 0;">Tassel Group</h1>
+          <p style="margin: 5px 0 0; opacity: 0.9;">Luxury Products & Services</p>
+        </div>
+        
+        <!-- Content -->
+        <div class="content">
+          <h2 style="color: #8B6F47; margin-top: 0;">Thank You for Your Order!</h2>
+          <p>Dear ${user?.name || 'Valued Customer'},</p>
+          <p>We have received your ${type} order and will process it shortly.</p>
+          
+          <!-- Order Details -->
+          <div class="order-details">
+            <h3 style="color: #8B6F47; margin-top: 0;">Order Summary</h3>
+            
+            <div style="margin-bottom: 15px;">
+              <p><strong>Order Reference:</strong> ${reference || 'N/A'}</p>
+              <p><strong>Order Type:</strong> ${type.charAt(0).toUpperCase() + type.slice(1)}</p>
+              <p><strong>Order Date:</strong> ${new Date().toLocaleDateString('en-ZA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            </div>
+            
+            <!-- Order Items -->
+            ${type === 'order' ? `
+              <h4 style="color: #8B6F47; margin-bottom: 10px;">Order Items:</h4>
+              <div style="margin-bottom: 15px;">
+                ${generateItemsHtml()}
+              </div>
+            ` : ''}
+            
+            ${type === 'booking' && customData?.bookingData ? `
+              <h4 style="color: #8B6F47; margin-bottom: 10px;">Booking Details:</h4>
+              <div style="margin-bottom: 15px;">
+                <p><strong>Service:</strong> ${customData.bookingData.serviceName || 'Service'}</p>
+                <p><strong>Date:</strong> ${customData.bookingData.date || 'Not specified'}</p>
+                <p><strong>Time:</strong> ${customData.bookingData.time || 'Not specified'}</p>
+                ${customData.bookingData.specialRequests ? `<p><strong>Your Notes:</strong> ${customData.bookingData.specialRequests}</p>` : ''}
+              </div>
+            ` : ''}
+            
+            ${type === 'gift' && customData?.giftData ? `
+              <h4 style="color: #8B6F47; margin-bottom: 10px;">Gift Details:</h4>
+              <div style="margin-bottom: 15px;">
+                <p><strong>Recipient:</strong> ${customData.giftData.recipientName || 'Not specified'}</p>
+                <p><strong>Gift Package:</strong> ${customData.giftData.packageName || 'Gift Package'}</p>
+                <p><strong>Scheduled Delivery:</strong> ${customData.giftData.deliveryDate || 'To be arranged'}</p>
+                ${customData.giftData.message ? `<p><strong>Your Message:</strong> "${customData.giftData.message}"</p>` : ''}
+              </div>
+            ` : ''}
+            
+            <!-- Order Totals -->
+            <div class="totals">
+              <h4 style="color: #8B6F47; margin-top: 0;">Order Totals</h4>
+              
+              ${type === 'order' && itemsSubtotal > 0 ? `
+                <div class="item-row">
+                  <span>Items Subtotal:</span>
+                  <span><strong>R ${itemsSubtotal.toFixed(2)}</strong></span>
+                </div>
+              ` : ''}
+              
+              ${deliveryFee > 0 ? `
+                <div class="item-row">
+                  <span>Delivery Fee:</span>
+                  <span><strong>R ${deliveryFee.toFixed(2)}</strong></span>
+                </div>
+              ` : ''}
+              
+              ${voucherAmount > 0 ? `
+                <div class="item-row">
+                  <span>Voucher Discount:</span>
+                  <span><strong>- R ${voucherAmount.toFixed(2)}</strong></span>
+                </div>
+              ` : ''}
+              
+              <div class="item-row" style="font-size: 18px; font-weight: bold; padding-top: 10px; border-top: 2px solid #8B6F47;">
+                <span>Total Amount:</span>
+                <span style="color: #8B6F47;">R ${formattedAmount}</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Next Steps -->
+          <div class="highlight">
+            <h4 style="color: #8B6F47; margin-top: 0;">What happens next?</h4>
+            <p>✅ Our team will contact you within 24 hours to confirm your order details</p>
+            <p>✅ You'll receive updates on your order status via email</p>
+            <p>✅ For bookings: We'll confirm your appointment time</p>
+            <p>✅ For gifts: We'll arrange delivery with the recipient</p>
+            <p>If you have any questions, please reply to this email or contact us at info@tasselgroup.co.za</p>
+          </div>
+          
+          <!-- Contact Info -->
+          <p>Thank you for choosing Tassel Group!</p>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+          <p style="margin: 0;"><strong>The Tassel Group Team</strong></p>
+          <p style="margin: 5px 0;">Email: info@tasselgroup.co.za</p>
+          <p style="margin: 5px 0;">Phone: +27 12 345 6789</p>
+          <p style="margin: 5px 0; font-size: 12px; color: #999;">
+            This is an automated email. Please do not reply directly to this message.
+          </p>
+          <p style="margin: 10px 0 0; font-size: 12px; color: #999;">
+            © ${new Date().getFullYear()} Tassel Group. All rights reserved.
+          </p>
+        </div>
       </div>
-
-      ${type === 'order' ? `
-        <h3 style="color: #8a6d3b;">Order Items:</h3>
-        <ul>
-          ${customData.items.map(item => `<li><strong>${item.name}</strong> - R ${item.price} x ${item.quantity}</li>`).join('')}
-        </ul>
-      ` : ''}
-
-      ${type === 'booking' ? `
-        <h3 style="color: #8a6d3b;">Booking Details:</h3>
-        <p><strong>Service:</strong> ${customData.bookingData.serviceName}</p>
-        <p><strong>Date:</strong> ${customData.bookingData.date}</p>
-        <p><strong>Time:</strong> ${customData.bookingData.time}</p>
-        ${customData.bookingData.specialRequests ? `<p><strong>Your Notes:</strong> ${customData.bookingData.specialRequests}</p>` : ''}
-      ` : ''}
-
-      ${type === 'gift' ? `
-        <h3 style="color: #8a6d3b;">Gift Details:</h3>
-        <p><strong>Recipient:</strong> ${customData.giftData.recipientName}</p>
-        <p><strong>Gift Package:</strong> ${customData.giftData.packageName}</p>
-        <p><strong>Scheduled Delivery:</strong> ${customData.giftData.deliveryDate}</p>
-        <p><strong>Your Message:</strong> "${customData.giftData.message}"</p>
-      ` : ''}
-
-      <div style="margin-top: 30px; padding: 15px; background: #e8f4f8; border-radius: 5px;">
-        <h4 style="color: #8a6d3b; margin-top: 0;">What happens next?</h4>
-        <p>Our team will contact you within 24 hours to confirm your order details and arrange delivery/booking.</p>
-        <p>If you have any questions, please reply to this email or contact us at info@tasselgroup.co.za</p>
-      </div>
-
-      <hr style="margin: 30px 0;">
-      <p style="color: #666; font-size: 14px;">
-        Best regards,<br>
-        <strong>The Tassel Group Team</strong><br>
-        Email: info@tasselgroup.co.za<br>
-        Phone: +27 12 345 6789
-      </p>
-    </div>
+    </body>
+    </html>
   `;
 }
 
