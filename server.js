@@ -9,7 +9,9 @@ const app = express();
 const corsOptions = {
     origin: [
         'http://localhost:3000',
+        'http://localhost:8000',
         'http://127.0.0.1:3000',
+        'http://127.0.0.1:8000',
         'http://localhost:5500',
         'http://127.0.0.1:5500',
         'http://127.0.0.1:5500/front',
@@ -72,9 +74,9 @@ app.get('/', (req, res) => {
     });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🔗 CORS configured for production`);
+    console.log(`🔗 CORS configured for development (localhost:8000 and localhost:10000)`);
 });
