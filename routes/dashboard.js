@@ -7,7 +7,6 @@ const Order = require('../models/Order');
 const Voucher = require('../models/Voucher');
 const GiftOrder = require('../models/GiftOrder');
 const { auth, adminAuth, staffAuth } = require('../middleware/auth');
-// Note: cacheMiddleware is imported but not used - consider removing if unnecessary
 
 const router = express.Router();
 
