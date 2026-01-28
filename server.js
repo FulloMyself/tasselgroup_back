@@ -54,6 +54,19 @@ app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/gift-orders', require('./routes/giftOrders'));
 app.use('/api/payment', require('./routes/payment'));
 app.use('/api/leave', require('./routes/leave'));
+app.use('/api/upload', require('./routes/upload'));
+
+// Simple categories endpoint
+app.get('/api/categories', async (req, res) => {
+  try {
+    // Return available product categories
+    const categories = ['skincare', 'haircare', 'Wellness', 'wellness', 'makeup', 'fragrance'];
+    res.json(categories);
+  } catch (error) {
+    console.error('Get categories error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
 
 // Health check
 app.get('/api/health', (req, res) => {

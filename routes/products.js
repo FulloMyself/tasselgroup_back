@@ -262,4 +262,15 @@ router.get('/search/:query', async (req, res) => {
   }
 });
 
+// Get all unique categories
+router.get('/categories/all', async (req, res) => {
+  try {
+    const categories = await Product.distinct('category');
+    res.json(categories);
+  } catch (error) {
+    console.error('Get categories error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 module.exports = router;
