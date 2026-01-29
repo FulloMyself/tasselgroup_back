@@ -129,4 +129,49 @@ router.delete('/:id', adminAuth, async (req, res) => {
   }
 });
 
+// Bulk assign voucher to multiple staff members (admin only)
+router.post('/bulk-assign', adminAuth, async (req, res) => {
+  try {
+    const { voucherId, userIds } = req.body;
+    
+    if (!voucherId || !userIds || !Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ message: 'voucherId and userIds array are required' });
+    }
+    
+    const voucher = await Voucher.findById(voucherId);
+    if (!voucher) {
+      return res.status(404).json({ message: 'Voucher not found' });
+    }
+    
+    // Check if voucher has enough remaining uses for all assignments
+    const totalAssignments = userIds.length;
+    const remainingUses = voucher.maxUses - voucher.used;
+    
+    if (remainingUses < totalAssignments) {
+      return res.status(400).json({ 
+        message: `Voucher does not have enough uses. Remaining: ${remainingUses}, Requested: ${totalAssignments}` 
+      });
+    }
+    
+    // Update each user with a copy of this voucher (or re-assign if already assigned)
+    const updatedAssignments = [];
+    for (const userId of userIds) {
+      const updated = await Voucher.findByIdAndUpdate(
+        voucherId,
+        { $set: { assignedTo: userId } },
+        { new: true }
+      ).populate('assignedTo', 'name email');
+      updatedAssignments.push(updated);
+    }
+    
+    res.json({ 
+      message: `Voucher assigned to ${totalAssignments} staff member(s)`,
+      assignments: updatedAssignments 
+    });
+  } catch (error) {
+    console.error('Bulk assign voucher error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 module.exports = router;

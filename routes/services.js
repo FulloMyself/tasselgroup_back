@@ -18,20 +18,19 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get gift package by ID - ALSO FIX THIS ONE
+// Get service by ID
 router.get('/:id', async (req, res) => {
   try {
-    const giftPackage = await giftPackage.findById(req.params.id)
-      .populate('services', 'name price duration')
-      .populate('products', 'name price image')
-      .lean(); // FIX: Add .lean() here too
+    const service = await Service.findById(req.params.id)
+      .populate('staff', 'name email')
+      .lean();
     
-    if (!giftPackage) {
-      return res.status(404).json({ message: 'Gift package not found' });
+    if (!service) {
+      return res.status(404).json({ message: 'Service not found' });
     }
-    res.json(giftPackage);
+    res.json(service);
   } catch (error) {
-    console.error('❌ Get gift package by ID error:', error);
+    console.error('❌ Get service by ID error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
