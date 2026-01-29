@@ -305,9 +305,26 @@ router.post('/manual-order', auth, async (req, res) => {
         return res.status(400).json({ success: false, message: 'Invalid order type' });
     }
 
+    // Prepare items with product names for email
+    let enrichedItems = [];
+    if (type === 'order' && items && Array.isArray(items)) {
+      const Product = require('../models/Product');
+      enrichedItems = await Promise.all(
+        items.map(async (item) => {
+          const product = await Product.findById(item.productId).lean();
+          return {
+            productId: item.productId,
+            name: product?.name || 'Product',
+            quantity: item.quantity,
+            price: item.price
+          };
+        })
+      );
+    }
+
     // Send confirmation emails
     await sendConfirmationEmails(user._id, type, result.reference, totalAmount, {
-      items: items || [],
+      items: enrichedItems.length > 0 ? enrichedItems : items || [],
       bookingData: bookingData || {},
       giftData: giftData || {}
     });
